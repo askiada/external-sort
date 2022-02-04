@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/askiada/external-sort/vector"
-
 	"github.com/pkg/errors"
 )
 
@@ -13,7 +12,7 @@ import (
 type chunkInfo struct {
 	file     *os.File
 	scanner  *bufio.Scanner
-	buffer   vector.Vector
+	buffer   *vector.Vector
 	filename string
 }
 
@@ -37,7 +36,7 @@ type chunks struct {
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate func(size int) vector.Vector, size int) error {
+func (c *chunks) new(chunkPath string, allocate func(size int) *vector.Vector, size int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
@@ -92,7 +91,7 @@ func (c *chunks) len() int {
 }
 
 // min Check all the first elements of all the chunks and returns the smallest value.
-func (c chunks) min() (minChunk *chunkInfo, minValue interface{}, minIdx int) {
+func (c chunks) min() (minChunk *chunkInfo, minValue vector.Element, minIdx int) {
 	for i, chunk := range c.list {
 		currValue := chunk.buffer.Get(0)
 		if i == 0 {

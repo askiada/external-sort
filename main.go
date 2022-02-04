@@ -30,23 +30,28 @@ func main() {
 	}
 	defer f.Close()
 	fI := &file.Info{
-		Reader:   f,
-		Allocate: vector.AllocateIntVector,
+		Reader:    f,
+		Allocate:  vector.AllocateTableVector("\t", 0),
+		Separator: "\t",
 	}
 
 	// create small files with maximum 30 rows in each
-	chunkPaths, err := fI.CreateSortedChunks("data/chunks", 4)
+	chunkPaths, err := fI.CreateSortedChunks("data/chunks", 1000)
 	if err != nil {
 		panic(err)
 	}
+	// TODO: remove files if the process crashes.
+
 	// perform a merge sort on all the chunks files.
 	// we sort using a buffer so we don't have to load the entire chunks when merging
-	output, err := fI.MergeSort(chunkPaths, 3)
+	output, err := fI.MergeSort(chunkPaths, 10_000)
 	if err != nil {
 		panic(err)
 	}
 	// this output could be saved on hard drive
 	// or we can imagine send events everytime an element is added to it
 	// of course it will require MergeSort to return a channel
-	fmt.Println(output)
+	for _, line := range output {
+		fmt.Println(line.Value())
+	}
 }

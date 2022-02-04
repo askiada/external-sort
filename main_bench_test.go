@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -31,7 +30,7 @@ func BenchmarkMergeSort(b *testing.B) {
 		_ = err
 	}
 	f.Close()
-	dir, err := ioutil.ReadDir("testdata/chunks")
+	dir, err := os.ReadDir("testdata/chunks")
 	assert.NoError(b, err)
 	for _, d := range dir {
 		err = os.RemoveAll(path.Join("testdata/chunks", d.Name()))
