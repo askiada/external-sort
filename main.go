@@ -30,8 +30,9 @@ func main() {
 	}
 	defer f.Close()
 	fI := &file.Info{
-		Reader:   f,
-		Allocate: vector.AllocateTableVector("\t", 0),
+		Reader:    f,
+		Allocate:  vector.AllocateTableVector("\t", 0),
+		Separator: "\t",
 	}
 
 	// create small files with maximum 30 rows in each

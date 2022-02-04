@@ -2,19 +2,19 @@ package file
 
 import (
 	"bufio"
-
 	"io"
 	"path"
 	"strconv"
 
 	"github.com/askiada/external-sort/vector"
-
 	"github.com/pkg/errors"
 )
 
 type Info struct {
-	Reader   io.Reader
-	Allocate func(int) *vector.Vector
+	Separator string
+	Pos       int
+	Reader    io.Reader
+	Allocate  func(int) *vector.Vector
 }
 
 // Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.
@@ -23,7 +23,7 @@ func (f *Info) Sort(file io.Reader) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		text := scanner.Text()
-		err := vector.Sort(ans, text, "\t", 0)
+		err := vector.Sort(ans, text, f.Separator, f.Pos)
 		if err != nil {
 			return errors.Wrap(err, "sorting file")
 		}
@@ -64,7 +64,7 @@ func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, e
 			ans = f.Allocate(dumpSize)
 		}
 		text := scanner.Text()
-		err := vector.Sort(ans, text, "\t", 0)
+		err := vector.Sort(ans, text, f.Separator, f.Pos)
 		if err != nil {
 			return nil, errors.Wrap(err, fn)
 		}
