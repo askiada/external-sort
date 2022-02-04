@@ -44,7 +44,6 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err 
 			return nil, err
 		}
 	}
-	var nextRow interface{}
 	for {
 		if chunks.len() == 0 {
 			break
@@ -53,7 +52,6 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err 
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
 		minChunk, minValue, minIdx := chunks.min()
-		nextRow = minValue
 		output = append(output, minValue)
 		// remove the first element from the chunk we pulled the smallest value
 		minChunk.buffer.FrontShift()
@@ -70,12 +68,8 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err 
 					return nil, err
 				}
 			}
-
-			// we first need to shrink the eventual last chunk before this condition
 		}
-		// remove all chunks with no more data available
 	}
-	_ = nextRow
 	mu.PrintMemUsage()
 	return output, chunks.close()
 }
