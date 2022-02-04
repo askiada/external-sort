@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -35,7 +36,7 @@ func main() {
 	}
 
 	// create small files with maximum 30 rows in each
-	chunkPaths, err := fI.CreateSortedChunks("data/chunks", 4)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 4, 2)
 	if err != nil {
 		panic(err)
 	}

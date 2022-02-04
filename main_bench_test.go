@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -22,7 +23,7 @@ func BenchmarkMergeSort(b *testing.B) {
 		Reader:   f,
 		Allocate: vector.AllocateIntVector,
 	}
-	chunkPaths, err := fI.CreateSortedChunks("testdata/chunks", chunkSize)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 10)
 	assert.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

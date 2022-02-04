@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -22,7 +23,7 @@ func prepareChunks(t *testing.T, filname string, chunkSize int) (*file.Info, []s
 		Reader:   f,
 		Allocate: vector.AllocateIntVector,
 	}
-	chunkPaths, err := fI.CreateSortedChunks("testdata/chunks", chunkSize)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 10)
 	assert.NoError(t, err)
 
 	t.Cleanup(func() {
