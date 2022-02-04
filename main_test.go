@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func prepareChunks(t *testing.T, filname string, chunkSize int) []string {
+func prepareChunks(t *testing.T, filname string, chunkSize int) (*file.Info, []string) {
 	t.Helper()
 	f, err := os.Open(filname)
 	assert.NoError(t, err)
@@ -35,7 +35,7 @@ func prepareChunks(t *testing.T, filname string, chunkSize int) []string {
 		}
 	})
 
-	return chunkPaths
+	return fI, chunkPaths
 }
 
 func Test(t *testing.T) {
@@ -64,8 +64,8 @@ func Test(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			for chunkSize := 1; chunkSize < 152; chunkSize += 10 {
 				for bufferSize := 1; bufferSize < 152; bufferSize += 10 {
-					chunkPaths := prepareChunks(t, filename, chunkSize)
-					got, err := file.MergeSort(chunkPaths, bufferSize, vector.AllocateIntVector)
+					fI, chunkPaths := prepareChunks(t, filename, chunkSize)
+					got, err := fI.MergeSort(chunkPaths, bufferSize)
 					assert.ElementsMatch(t, got, expectedOutput)
 					assert.True(t, errors.Is(err, expectedErr))
 				}

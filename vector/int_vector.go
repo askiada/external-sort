@@ -10,8 +10,10 @@ import (
 
 var _ Vector = &IntVec{}
 
-func AllocateIntVector() Vector {
-	return &IntVec{}
+func AllocateIntVector(size int) Vector {
+	return &IntVec{
+		s: make([]int, 0, size),
+	}
 }
 
 type IntVec struct {

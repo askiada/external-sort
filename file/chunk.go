@@ -37,18 +37,23 @@ type chunks struct {
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate func() vector.Vector) error {
+func (c *chunks) new(chunkPath string, allocate func(size int) vector.Vector, size int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
 	}
 	scanner := bufio.NewScanner(f)
-	c.list = append(c.list, &chunkInfo{
+	elem := &chunkInfo{
 		filename: chunkPath,
 		file:     f,
 		scanner:  scanner,
-		buffer:   allocate(),
-	})
+		buffer:   allocate(size),
+	}
+	err = elem.pullSubset(size)
+	if err != nil {
+		return err
+	}
+	c.list = append(c.list, elem)
 	return nil
 }
 
@@ -63,15 +68,11 @@ func (c *chunks) close() error {
 	return nil
 }
 
-// get Access the i-th chunk and returns it.
-func (c *chunks) get(i int) *chunkInfo {
-	return c.list[i]
-}
-
 // shrink Remove all the chunks at the specified indexes
 // it removes the local file created and close the file descriptor.
 func (c *chunks) shrink(toShrink []int) error {
-	for _, shrinkIndex := range toShrink {
+	for i, shrinkIndex := range toShrink {
+		shrinkIndex -= i
 		err := c.list[shrinkIndex].file.Close()
 		if err != nil {
 			return err
@@ -91,18 +92,20 @@ func (c *chunks) len() int {
 }
 
 // min Check all the first elements of all the chunks and returns the smallest value.
-func (c chunks) min() (minChunk *chunkInfo, minValue interface{}) {
+func (c chunks) min() (minChunk *chunkInfo, minValue interface{}, minIdx int) {
 	for i, chunk := range c.list {
 		currValue := chunk.buffer.Get(0)
 		if i == 0 {
 			minChunk = chunk
 			minValue = currValue
+			minIdx = i
 			continue
 		}
 		if chunk.buffer.Less(currValue, minValue) {
 			minChunk = chunk
 			minValue = currValue
+			minIdx = i
 		}
 	}
-	return minChunk, minValue
+	return minChunk, minValue, minIdx
 }

@@ -14,12 +14,12 @@ import (
 
 type Info struct {
 	Reader   io.Reader
-	Allocate func() vector.Vector
+	Allocate func(int) vector.Vector
 }
 
 // Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.
 func (f *Info) Sort(file io.Reader) error {
-	ans := f.Allocate()
+	ans := f.Allocate(0)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		text := scanner.Text()
@@ -61,7 +61,7 @@ func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, e
 				chunkPaths = append(chunkPaths, chunkPath)
 				chunkIdx++
 			}
-			ans = f.Allocate()
+			ans = f.Allocate(dumpSize)
 		}
 		text := scanner.Text()
 		err := vector.Sort(ans, text)
