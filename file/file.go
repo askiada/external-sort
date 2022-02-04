@@ -23,9 +23,9 @@ func (f *Info) Sort(file io.Reader) error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		text := scanner.Text()
-		err := vector.Sort(ans, text)
+		err := vector.Sort(ans, text, "\t", 0)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "sorting file")
 		}
 	}
 	if scanner.Err() != nil {
@@ -64,7 +64,7 @@ func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, e
 			ans = f.Allocate(dumpSize)
 		}
 		text := scanner.Text()
-		err := vector.Sort(ans, text)
+		err := vector.Sort(ans, text, "\t", 0)
 		if err != nil {
 			return nil, errors.Wrap(err, fn)
 		}

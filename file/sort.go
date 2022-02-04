@@ -3,6 +3,8 @@ package file
 import (
 	"fmt"
 	"runtime"
+
+	"github.com/askiada/external-sort/vector"
 )
 
 type MemUsage struct {
@@ -34,7 +36,7 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err error) {
+func (f *Info) MergeSort(chunkPaths []string, k int) (output []vector.Element, err error) {
 	mu := &MemUsage{}
 	// create a chunk per file path
 	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
@@ -44,10 +46,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err 
 			return nil, err
 		}
 	}
-	for {
-		if chunks.len() == 0 {
-			break
-		}
+	for chunks.len() > 0 {
 		mu.Collect()
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only

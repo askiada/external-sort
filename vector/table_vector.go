@@ -4,24 +4,32 @@ import (
 	"bufio"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-var _ Vector = &IntVec{}
+var _ Vector = &TableVec{}
 
-func AllocateIntVector(size int) Vector {
-	return &IntVec{
-		s: make([]Element, 0, size),
+func AllocateTableVector(sep string, pos int) func(int) Vector {
+	return func(size int) Vector {
+		return &TableVec{
+			s:   make([]Element, 0, size),
+			sep: sep,
+			pos: pos,
+		}
 	}
 }
 
-type IntVec struct {
-	s []Element
+type TableVec struct {
+	sep string
+	s   []Element
+	pos int
 }
 
-func (*IntVec) newElement(value string) *element {
-	i, err := strconv.Atoi(value)
+func (v *TableVec) newElement(value string) *element {
+	num := strings.Split(value, v.sep)[v.pos]
+	i, err := strconv.Atoi(num)
 	if err != nil {
 		panic(errors.Wrap(err, "converting value from string"))
 	}
@@ -32,33 +40,33 @@ func (*IntVec) newElement(value string) *element {
 	}
 }
 
-func (v *IntVec) Get(i int) Element {
+func (v *TableVec) Get(i int) Element {
 	return v.s[i]
 }
 
-func (v *IntVec) End() int {
+func (v *TableVec) End() int {
 	return len(v.s)
 }
 
-func (v *IntVec) insert(i int, value string) error {
+func (v *TableVec) insert(i int, value string) error {
 	v.s = append(v.s[:i], append([]Element{v.newElement(value)}, v.s[i:]...)...)
 	return nil
 }
 
-func (v *IntVec) PushBack(value string) error {
+func (v *TableVec) PushBack(value string) error {
 	v.s = append(v.s, v.newElement(value))
 	return nil
 }
 
-func (v *IntVec) Less(v1, v2 Element) bool {
+func (v *TableVec) Less(v1, v2 Element) bool {
 	return v1.Less(v2)
 }
 
-func (v *IntVec) convertFromString(value string) (Element, error) {
+func (v *TableVec) convertFromString(value string) (Element, error) {
 	return v.newElement(value), nil
 }
 
-func (v *IntVec) Dump(filename string) error {
+func (v *TableVec) Dump(filename string) error {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return errors.Errorf("failed creating file: %s", err)
@@ -76,6 +84,6 @@ func (v *IntVec) Dump(filename string) error {
 	return nil
 }
 
-func (v *IntVec) FrontShift() {
+func (v *TableVec) FrontShift() {
 	v.s = v.s[1:]
 }

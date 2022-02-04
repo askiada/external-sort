@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/askiada/external-sort/vector"
-
 	"github.com/pkg/errors"
 )
 
@@ -92,7 +91,7 @@ func (c *chunks) len() int {
 }
 
 // min Check all the first elements of all the chunks and returns the smallest value.
-func (c chunks) min() (minChunk *chunkInfo, minValue interface{}, minIdx int) {
+func (c chunks) min() (minChunk *chunkInfo, minValue vector.Element, minIdx int) {
 	for i, chunk := range c.list {
 		currValue := chunk.buffer.Get(0)
 		if i == 0 {
