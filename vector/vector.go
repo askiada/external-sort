@@ -1,47 +1,73 @@
+// Package vector contains the core operation for sorting.
 package vector
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
-type Element interface {
-	Value() string
-	Less(other Element) bool
+// Vector holds a slice of Elements for sorting. The NewElement is called each
+// time a new item from the file is read or inserted into the slice. The Less
+// function should return true if the first element is lower than the second.
+type Vector struct {
+	NewElement func(value string) Element
+	Less       func(v1, v2 Element) bool
+	s          []Element
 }
 
-type Vector interface {
-	// Get Access i-th element
-	Get(i int) Element
-	// PushBack Add item at the end
-	PushBack(value string) error
-	// Less Returns wether v1 is smaller than v2
-	Less(v1, v2 Element) bool
-	// Dump Create a file and store the underluing data
-	Dump(filename string) error
-	// FrontShift Remove the first element
-	FrontShift()
-	// End Length of the Vector
-	End() int
-	// insert Insert elements at index i
-	insert(i int, value string) error
-	// convertFromString Convert the line from the file to the expected underlying data
-	convertFromString(value string) (Element, error)
+// Get returns the element at the given index.
+func (v *Vector) Get(i int) Element {
+	return v.s[i]
+}
+
+// Len returns the length of the vector.
+func (v *Vector) Len() int {
+	return len(v.s)
+}
+
+// PushBack pushes a new element to the end of the vector.
+func (v *Vector) PushBack(value string) {
+	v.s = append(v.s, v.NewElement(value))
+}
+
+func (v *Vector) Dump(filename string) error {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return errors.Errorf("failed creating file: %s", err)
+	}
+	defer file.Close()
+	datawriter := bufio.NewWriter(file)
+	defer datawriter.Flush()
+
+	for _, data := range v.s {
+		_, err = datawriter.WriteString(data.Value() + "\n")
+		if err != nil {
+			return errors.Errorf("failed writing file: %s", err)
+		}
+	}
+	return nil
+}
+
+// FrontShift shifts the vector one element forward.
+func (v *Vector) FrontShift() {
+	v.s = v.s[1:]
 }
 
 // Sort Perform a binary search to find where to put a value in a vector. Ascending order.
-func Sort(ans Vector, line, sep string, pos int) error {
+func Sort(v *Vector, line, sep string, pos int) error {
 	num := strings.Split(line, sep)
 	if len(num) < pos {
 		return fmt.Errorf("could not find position %d in %q", pos, line)
 	}
-	val, err := ans.convertFromString(num[pos])
-	if err != nil {
-		return err
-	}
-	found := sort.Search(ans.End(), func(i int) bool {
-		return !ans.Less(ans.Get(i), val)
+	val := v.NewElement(num[pos])
+	found := sort.Search(v.Len(), func(i int) bool {
+		return !v.Less(v.Get(i), val)
 	})
-	return ans.insert(found, line)
+	v.s = append(v.s[:found], append([]Element{v.NewElement(line)}, v.s[found:]...)...)
+	return nil
 }

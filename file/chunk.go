@@ -12,7 +12,7 @@ import (
 type chunkInfo struct {
 	file     *os.File
 	scanner  *bufio.Scanner
-	buffer   vector.Vector
+	buffer   *vector.Vector
 	filename string
 }
 
@@ -36,7 +36,7 @@ type chunks struct {
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate func(size int) vector.Vector, size int) error {
+func (c *chunks) new(chunkPath string, allocate func(size int) *vector.Vector, size int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err

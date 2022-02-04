@@ -54,13 +54,13 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (output []vector.Element, e
 		output = append(output, minValue)
 		// remove the first element from the chunk we pulled the smallest value
 		minChunk.buffer.FrontShift()
-		if minChunk.buffer.End() == 0 {
+		if minChunk.buffer.Len() == 0 {
 			err = minChunk.pullSubset(k)
 			if err != nil {
 				return nil, err
 			}
 			// if after pulling data the chunk buffer is still empty then we can remove it
-			if minChunk.buffer.End() == 0 {
+			if minChunk.buffer.Len() == 0 {
 				toShrink = append(toShrink, minIdx)
 				err = chunks.shrink(toShrink)
 				if err != nil {

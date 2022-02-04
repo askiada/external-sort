@@ -14,7 +14,7 @@ import (
 
 type Info struct {
 	Reader   io.Reader
-	Allocate func(int) vector.Vector
+	Allocate func(int) *vector.Vector
 }
 
 // Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.
@@ -50,7 +50,7 @@ func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, e
 	chunkIdx := 0
 	chunkPaths := []string{}
 	scanner := bufio.NewScanner(f.Reader)
-	var ans vector.Vector
+	var ans *vector.Vector
 	for scanner.Scan() {
 		if row%dumpSize == 0 {
 			if row != 0 {
@@ -85,7 +85,7 @@ func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, e
 	return chunkPaths, nil
 }
 
-func dumpChunk(ans vector.Vector, folder string, chunkIdx int) (string, error) {
+func dumpChunk(ans *vector.Vector, folder string, chunkIdx int) (string, error) {
 	fn := "dump chunk"
 	chunkPath := path.Join(folder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
 	err := ans.Dump(chunkPath)
