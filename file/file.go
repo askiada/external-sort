@@ -54,39 +54,33 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	chunkPaths := []string{}
 	scanner := bufio.NewScanner(f.Reader)
 
-	vectors := make(chan vector.Vector)
 	g, _ := errgroup.WithContext(ctx)
 	sem := semaphore.NewWeighted(maxWorkers)
-	var globalErr error
-	go func() {
-		for vec := range vectors {
-			if err := sem.Acquire(ctx, 1); err != nil {
-				globalErr = err
+	ans := f.Allocate(dumpSize)
+	for {
+		next := scanner.Scan()
+		if !next || row%dumpSize == 0 {
+			if row > 0 && ans != nil {
+				if err := sem.Acquire(ctx, 1); err != nil {
+					return nil, err
+				}
+				localVec := ans
+				chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+				g.Go(func() error {
+					defer sem.Release(1)
+					err := localVec.Dump(chunkPath)
+					if err != nil {
+						return errors.Wrap(err, fn)
+					}
+					return nil
+				})
+				chunkPaths = append(chunkPaths, chunkPath)
+				chunkIdx++
+				ans = f.Allocate(dumpSize)
 			}
-			localVec := vec
-			chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-			g.Go(func() error {
-				defer sem.Release(1)
-				if globalErr != nil {
-					return errors.Wrap(globalErr, fn)
-				}
-				err := localVec.Dump(chunkPath)
-				if err != nil {
-					return errors.Wrap(err, fn)
-				}
-				return nil
-			})
-			chunkPaths = append(chunkPaths, chunkPath)
-			chunkIdx++
 		}
-	}()
-	var ans vector.Vector
-	for scanner.Scan() {
-		if row%dumpSize == 0 {
-			if row != 0 {
-				vectors <- ans
-			}
-			ans = f.Allocate(dumpSize)
+		if !next {
+			break
 		}
 		text := scanner.Text()
 		err := vector.Sort(ans, text)
@@ -104,21 +98,5 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if ans == nil {
 		return chunkPaths, nil
 	}
-
-	chunkPath, err := dumpChunk(ans, chunkFolder, chunkIdx)
-	if err != nil {
-		return nil, errors.Wrap(err, fn)
-	}
-	chunkPaths = append(chunkPaths, chunkPath)
 	return chunkPaths, nil
-}
-
-func dumpChunk(ans vector.Vector, folder string, chunkIdx int) (string, error) {
-	fn := "dump chunk"
-	chunkPath := path.Join(folder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-	err := ans.Dump(chunkPath)
-	if err != nil {
-		return "", errors.Wrap(err, fn)
-	}
-	return chunkPath, nil
 }
