@@ -19,6 +19,10 @@ type StringVec struct {
 	s []string
 }
 
+func (v *StringVec) Reset() {
+	v.s = nil
+}
+
 func (v *StringVec) Get(i int) interface{} {
 	return v.s[i]
 }
@@ -38,15 +42,16 @@ func (v *StringVec) PushBack(value interface{}) error {
 	return nil
 }
 
-func (v *StringVec) Compare(v1, v2 interface{}) bool {
-	return v1.(string) >= v2.(string)
-}
 func (v *StringVec) Less(v1, v2 interface{}) bool {
 	return v1.(string) < v2.(string)
 }
 
 func (v *StringVec) convertFromString(value string) (interface{}, error) {
 	return value, nil
+}
+
+func (v *StringVec) ConvertToString(value interface{}) (string, error) {
+	return value.(string), nil
 }
 
 func (v *StringVec) Dump(filename string) error {

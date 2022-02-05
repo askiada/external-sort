@@ -20,6 +20,10 @@ type IntVec struct {
 	s []int
 }
 
+func (v *IntVec) Reset() {
+	v.s = nil
+}
+
 func (v *IntVec) Get(i int) interface{} {
 	return v.s[i]
 }
@@ -35,17 +39,23 @@ func (v *IntVec) insert(i int, value interface{}) error {
 }
 
 func (v *IntVec) PushBack(value interface{}) error {
-	num, err := strconv.Atoi(value.(string))
-	if err != nil {
-		return err
+	var (
+		num int
+		err error
+	)
+	val, ok := value.(string)
+	if ok {
+		num, err = strconv.Atoi(val)
+		if err != nil {
+			return err
+		}
+	} else {
+		num = value.(int)
 	}
 	v.s = append(v.s, num)
 	return nil
 }
 
-func (v *IntVec) Compare(v1, v2 interface{}) bool {
-	return v1.(int) >= v2.(int)
-}
 func (v *IntVec) Less(v1, v2 interface{}) bool {
 	return v1.(int) < v2.(int)
 }
@@ -56,6 +66,11 @@ func (v *IntVec) convertFromString(value string) (interface{}, error) {
 		return false, err
 	}
 	return num2, err
+}
+
+func (v *IntVec) ConvertToString(value interface{}) (string, error) {
+	s := strconv.Itoa(value.(int))
+	return s, nil
 }
 
 func (v *IntVec) Dump(filename string) error {

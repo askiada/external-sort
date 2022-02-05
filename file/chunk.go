@@ -3,6 +3,7 @@ package file
 import (
 	"bufio"
 	"os"
+	"sort"
 
 	"github.com/askiada/external-sort/vector"
 
@@ -81,8 +82,8 @@ func (c *chunks) shrink(toShrink []int) error {
 		if err != nil {
 			return err
 		}
-		c.list[shrinkIndex] = c.list[len(c.list)-1]
-		c.list = c.list[:len(c.list)-1]
+		// we want to preserve order
+		c.list = append(c.list[:shrinkIndex], c.list[shrinkIndex+1:]...)
 	}
 	return nil
 }
@@ -91,21 +92,31 @@ func (c *chunks) len() int {
 	return len(c.list)
 }
 
-// min Check all the first elements of all the chunks and returns the smallest value.
-func (c chunks) min() (minChunk *chunkInfo, minValue interface{}, minIdx int) {
-	for i, chunk := range c.list {
-		currValue := chunk.buffer.Get(0)
-		if i == 0 {
-			minChunk = chunk
-			minValue = currValue
-			minIdx = i
-			continue
-		}
-		if chunk.buffer.Less(currValue, minValue) {
-			minChunk = chunk
-			minValue = currValue
-			minIdx = i
-		}
+// resetOrder Put all the chunks in ascending order
+// Compare the first element of each chunk.
+func (c *chunks) resetOrder() {
+	if len(c.list) > 1 {
+		sort.Slice(c.list, func(i, j int) bool {
+			return c.list[i].buffer.Less(c.list[i].buffer.Get(0), c.list[j].buffer.Get(0))
+		})
 	}
+}
+
+// moveFirstChunkToCorrectIndex Check where the first chunk should using the first value in the buffer.
+func (c *chunks) moveFirstChunkToCorrectIndex() {
+	elem := c.list[0]
+	c.list = c.list[1:]
+	pos := sort.Search(len(c.list), func(i int) bool {
+		return !elem.buffer.Less(c.list[i].buffer.Get(0), elem.buffer.Get(0))
+	})
+	// TODO: c.list = c.list[1:] and the following line create an unecessary allocation.
+	c.list = append(c.list[:pos], append([]*chunkInfo{elem}, c.list[pos:]...)...)
+}
+
+// min Check all the first elements of all the chunks and returns the smallest value.
+func (c *chunks) min() (minChunk *chunkInfo, minValue interface{}, minIdx int) {
+	minValue = c.list[0].buffer.Get(0)
+	minIdx = 0
+	minChunk = c.list[0]
 	return minChunk, minValue, minIdx
 }

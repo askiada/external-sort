@@ -1,2 +1,3 @@
 bench*
 gen*
+chunk_*.tsv

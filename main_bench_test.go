@@ -20,15 +20,15 @@ func BenchmarkMergeSort(b *testing.B) {
 	assert.NoError(b, err)
 
 	fI := &file.Info{
-		Reader:   f,
-		Allocate: vector.AllocateIntVector,
+		Reader:     f,
+		Allocate:   vector.AllocateIntVector,
+		OutputPath: "testdata/chunks/output.tsv",
 	}
 	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 10)
 	assert.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got, err := fI.MergeSort(chunkPaths, bufferSize)
-		_ = got
+		err = fI.MergeSort(chunkPaths, bufferSize)
 		_ = err
 	}
 	f.Close()
