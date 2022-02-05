@@ -14,7 +14,7 @@ import (
 
 func BenchmarkMergeSort(b *testing.B) {
 	filename := "test.tsv"
-	chunkSize := 100000
+	chunkSize := 10000
 	bufferSize := 5000
 	f, err := os.Open(filename)
 	assert.NoError(b, err)
