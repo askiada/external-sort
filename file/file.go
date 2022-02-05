@@ -16,8 +16,9 @@ import (
 )
 
 type Info struct {
-	Reader   io.Reader
-	Allocate func(int) vector.Vector
+	Reader        io.Reader
+	Allocate      func(int) vector.Vector
+	PrintMemUsage bool
 }
 
 // Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.

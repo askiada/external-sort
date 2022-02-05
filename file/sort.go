@@ -6,12 +6,16 @@ import (
 )
 
 type MemUsage struct {
+	active   bool
 	MaxAlloc uint64
 	MaxSys   uint64
 	NumGc    uint32
 }
 
 func (mu *MemUsage) Collect() {
+	if !mu.active {
+		return
+	}
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	if m.Alloc > mu.MaxAlloc {
@@ -25,6 +29,9 @@ func (mu *MemUsage) Collect() {
 }
 
 func (mu *MemUsage) PrintMemUsage() {
+	if !mu.active {
+		return
+	}
 	fmt.Printf("Max Alloc = %v MiB", bToMb(mu.MaxAlloc))
 	fmt.Printf("\tMax Sys = %v MiB", bToMb(mu.MaxSys))
 	fmt.Printf("\tNumGC = %v\n", mu.NumGc)
@@ -35,7 +42,7 @@ func bToMb(b uint64) uint64 {
 }
 
 func (f *Info) MergeSort(chunkPaths []string, k int) (output []interface{}, err error) {
-	mu := &MemUsage{}
+	mu := &MemUsage{active: f.PrintMemUsage}
 	// create a chunk per file path
 	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
 	for _, chunkPath := range chunkPaths {
