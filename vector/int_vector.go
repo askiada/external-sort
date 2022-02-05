@@ -29,9 +29,6 @@ func (v *IntVec) End() int {
 }
 
 func (v *IntVec) insert(i int, value interface{}) error {
-	if len(v.s) == i { // nil or empty slice or after last element
-		v.s = append(v.s, value.(int))
-	}
 	v.s = append(v.s[:i+1], v.s[i:]...) // index < len(a)
 	v.s[i] = value.(int)
 	return nil

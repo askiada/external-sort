@@ -28,7 +28,8 @@ func (v *StringVec) End() int {
 }
 
 func (v *StringVec) insert(i int, value interface{}) error {
-	v.s = append(v.s[:i], append([]string{value.(string)}, v.s[i:]...)...)
+	v.s = append(v.s[:i+1], v.s[i:]...) // index < len(a)
+	v.s[i] = value.(string)
 	return nil
 }
 
