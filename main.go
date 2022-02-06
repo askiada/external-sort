@@ -37,13 +37,13 @@ func main() {
 	}
 
 	// create small files with maximum 30 rows in each
-	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 10000, 30)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 100000, 100)
 	if err != nil {
 		panic(err)
 	}
 	// perform a merge sort on all the chunks files.
 	// we sort using a buffer so we don't have to load the entire chunks when merging
-	err = fI.MergeSort(chunkPaths, 500)
+	err = fI.MergeSort(chunkPaths, 1)
 	if err != nil {
 		panic(err)
 	}

@@ -24,7 +24,7 @@ func BenchmarkMergeSort(b *testing.B) {
 		Allocate:   vector.AllocateIntVector,
 		OutputPath: "testdata/chunks/output.tsv",
 	}
-	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 10)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)
 	assert.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
