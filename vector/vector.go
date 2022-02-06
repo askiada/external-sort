@@ -23,6 +23,7 @@ type Vector interface {
 	ConvertToString(value interface{}) (string, error)
 	// Reset Clear the content in the vector
 	Reset()
+	Sort()
 }
 
 // Sort Perform a binary search to find where to put a value in a vector. Ascending order.

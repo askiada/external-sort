@@ -1,3 +1,4 @@
 bench*
 gen*
 chunk_*.tsv
+bin/

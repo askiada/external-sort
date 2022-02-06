@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// create small files with maximum 30 rows in each
-	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 10000, 8)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 10000, 30)
 	if err != nil {
 		panic(err)
 	}

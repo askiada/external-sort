@@ -3,11 +3,13 @@ package file
 import (
 	"bufio"
 	"context"
+	"sync"
 
 	"io"
 	"path"
 	"strconv"
 
+	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -58,50 +60,50 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		return nil, errors.Wrap(err, fn)
 	}
 	row := 0
-	chunkIdx := 0
 	chunkPaths := []string{}
 	scanner := bufio.NewScanner(f.Reader)
+	mu := sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	batchChan := batchingchannels.NewBatchingChannel(context.Background(), maxWorkers, dumpSize, f.Allocate)
+	var globalErr error
+	go func() {
+		defer wg.Done()
+		chunkIdx := 0
+		globalErr = batchChan.ProcessOut(func(v vector.Vector) error {
+			mu.Lock()
+			chunkIdx++
+			chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+			mu.Unlock()
+			v.Sort()
+			err := v.Dump(chunkPath)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			chunkPaths = append(chunkPaths, chunkPath)
+			mu.Unlock()
+			return nil
+		})
+	}()
 
-	g, _ := errgroup.WithContext(ctx)
-	sem := semaphore.NewWeighted(maxWorkers)
-	ans := f.Allocate(dumpSize)
-	for {
+	for scanner.Scan() {
+		if globalErr != nil {
+			return nil, globalErr
+		}
 		if f.PrintMemUsage {
 			f.mu.Collect()
 		}
-		next := scanner.Scan()
-		// create a new chunk every time we reach the maximum length and the last chunk (could be smaller)
-		if !next || row%dumpSize == 0 {
-			if row > 0 && ans != nil {
-				chunkPath, err := addNewDump(ctx, g, ans, sem, chunkFolder, chunkIdx)
-				if err != nil {
-					return nil, errors.Wrap(err, fn)
-				}
-				chunkPaths = append(chunkPaths, chunkPath)
-				chunkIdx++
-				ans = f.Allocate(dumpSize)
-			}
-		}
-		if !next {
-			break
-		}
 		text := scanner.Text()
-		err := vector.Sort(ans, text)
-		if err != nil {
-			return nil, errors.Wrap(err, fn)
-		}
+		batchChan.In() <- text
 		row++
 	}
 	if scanner.Err() != nil {
 		return nil, errors.Wrap(scanner.Err(), fn)
 	}
-	if err := g.Wait(); err != nil {
-		return nil, errors.Wrap(err, fn)
-	}
+	batchChan.Close()
+	wg.Wait()
 	f.totalRows = row
-	if ans == nil {
-		return chunkPaths, nil
-	}
 	return chunkPaths, nil
 }
 

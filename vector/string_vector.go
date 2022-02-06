@@ -3,6 +3,7 @@ package vector
 import (
 	"bufio"
 	"os"
+	"sort"
 
 	"github.com/pkg/errors"
 )
@@ -27,6 +28,11 @@ func (v *StringVec) Get(i int) interface{} {
 	return v.s[i]
 }
 
+func (v *StringVec) Sort() {
+	sort.Slice(v.s, func(i, j int) bool {
+		return v.Less(v.Get(i), v.Get(j))
+	})
+}
 func (v *StringVec) End() int {
 	return len(v.s)
 }

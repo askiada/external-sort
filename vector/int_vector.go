@@ -3,6 +3,7 @@ package vector
 import (
 	"bufio"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -58,6 +59,12 @@ func (v *IntVec) PushBack(value interface{}) error {
 
 func (v *IntVec) Less(v1, v2 interface{}) bool {
 	return v1.(int) < v2.(int)
+}
+
+func (v *IntVec) Sort() {
+	sort.Slice(v.s, func(i, j int) bool {
+		return v.Less(v.Get(i), v.Get(j))
+	})
 }
 
 func (v *IntVec) convertFromString(value string) (interface{}, error) {

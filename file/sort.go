@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/askiada/external-sort/vector"
-	"github.com/cheggaaa/pb/v3"
+	//"github.com/cheggaaa/pb/v3".
 )
 
 type MemUsage struct {
@@ -62,7 +62,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 
 	outputBuffer := bufio.NewWriter(outputFile)
 
-	bar := pb.StartNew(f.totalRows)
+	//bar := pb.StartNew(f.totalRows)
 	chunks.resetOrder()
 	for {
 		if f.PrintMemUsage {
@@ -106,13 +106,13 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		if !isEmpty {
 			chunks.moveFirstChunkToCorrectIndex()
 		}
-		bar.Increment()
+		//bar.Increment()
 	}
 	err = outputBuffer.Flush()
 	if err != nil {
 		return err
 	}
-	bar.Finish()
+	//bar.Finish()
 	if f.PrintMemUsage {
 		f.mu.PrintMemUsage()
 	}

@@ -7,5 +7,9 @@ test_race:
 	go test -race ./...
 
 .PHONY: run
-run:
-	go run main.go
+run: build
+	./bin/external-sort
+
+.PHONY: build
+build:
+	go build -o bin/external-sort main.go
