@@ -13,13 +13,10 @@ type Vector interface {
 	FrontShift()
 	// End Length of the Vector
 	End() int
-	// insert Insert elements at index i
-	insert(i int, value interface{}) error
-	// convertFromString Convert the line from the file to the expected underlying data
-	convertFromString(value string) (interface{}, error)
 	// ConvertToString Convert the underlying data to a string
 	ConvertToString(value interface{}) (string, error)
 	// Reset Clear the content in the vector
 	Reset()
+	// Sort sort the vector in ascending order
 	Sort()
 }

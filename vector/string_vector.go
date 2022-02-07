@@ -37,12 +37,6 @@ func (v *StringVec) End() int {
 	return len(v.s)
 }
 
-func (v *StringVec) insert(i int, value interface{}) error {
-	v.s = append(v.s[:i+1], v.s[i:]...) // index < len(a)
-	v.s[i] = value.(string)
-	return nil
-}
-
 func (v *StringVec) PushBack(value interface{}) error {
 	v.s = append(v.s, value.(string))
 	return nil
@@ -50,10 +44,6 @@ func (v *StringVec) PushBack(value interface{}) error {
 
 func (v *StringVec) Less(v1, v2 interface{}) bool {
 	return v1.(string) < v2.(string)
-}
-
-func (v *StringVec) convertFromString(value string) (interface{}, error) {
-	return value, nil
 }
 
 func (v *StringVec) ConvertToString(value interface{}) (string, error) {

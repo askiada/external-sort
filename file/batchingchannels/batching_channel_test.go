@@ -1,12 +1,17 @@
 package batchingchannels_test
 
 import (
+	"context"
+	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/askiada/external-sort/file/batchingchannels"
+	"github.com/askiada/external-sort/vector"
+	"github.com/stretchr/testify/assert"
 )
 
-/*
 func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	maxI := 10000
 	expectedSum := (maxI - 1) * maxI / 2
@@ -39,24 +44,21 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 			gotSum += g
 		}
 	}()
-	maxOut := 100
-	wg.Add(maxOut)
-	for i := 0; i < maxOut; i++ {
-		go func() {
-			defer wg.Done()
-			err := ch.ProcessOut(func(val vector.Vector) error {
-				for i := 0; i < val.End(); i++ {
-					val := val.Get(i)
-					got <- val.(int)
-				}
-				time.Sleep(10 * time.Millisecond)
-				return nil
-			})
-			if err != nil {
-				panic(err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := ch.ProcessOut(func(val vector.Vector) error {
+			for i := 0; i < val.End(); i++ {
+				val := val.Get(i)
+				got <- val.(int)
 			}
-		}()
-	}
+			time.Sleep(3 * time.Millisecond)
+			return nil
+		})
+		if err != nil {
+			panic(err)
+		}
+	}()
 	wg.Wait()
 	close(got)
 	wgSum.Wait()
@@ -79,7 +81,7 @@ func TestBatchingChannelCap(t *testing.T) {
 	if ch.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")
 	}
-}*/
+}
 
 func testChannelConcurrentAccessors(t *testing.T, name string, ch *batchingchannels.BatchingChannel) {
 	// no asserts here, this is just for the race detector's benefit

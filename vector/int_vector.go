@@ -33,12 +33,6 @@ func (v *IntVec) End() int {
 	return len(v.s)
 }
 
-func (v *IntVec) insert(i int, value interface{}) error {
-	v.s = append(v.s[:i+1], v.s[i:]...) // index < len(a)
-	v.s[i] = value.(int)
-	return nil
-}
-
 func (v *IntVec) PushBack(value interface{}) error {
 	var (
 		num int
@@ -65,14 +59,6 @@ func (v *IntVec) Sort() {
 	sort.Slice(v.s, func(i, j int) bool {
 		return v.Less(v.Get(i), v.Get(j))
 	})
-}
-
-func (v *IntVec) convertFromString(value string) (interface{}, error) {
-	num2, err := strconv.Atoi(value)
-	if err != nil {
-		return false, err
-	}
-	return num2, err
 }
 
 func (v *IntVec) ConvertToString(value interface{}) (string, error) {
