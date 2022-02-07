@@ -1,7 +1,5 @@
 package vector
 
-import "sort"
-
 type Vector interface {
 	// Get Access i-th element
 	Get(i int) interface{}
@@ -24,16 +22,4 @@ type Vector interface {
 	// Reset Clear the content in the vector
 	Reset()
 	Sort()
-}
-
-// Sort Perform a binary search to find where to put a value in a vector. Ascending order.
-func Sort(ans Vector, num string) error {
-	val, err := ans.convertFromString(num)
-	if err != nil {
-		return err
-	}
-	pos := sort.Search(ans.End(), func(i int) bool {
-		return !ans.Less(ans.Get(i), val)
-	})
-	return ans.insert(pos, val)
 }

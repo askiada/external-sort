@@ -7,16 +7,8 @@ import (
 )
 
 /*
-type s struct {
-	child *s
-	i     int
-	a     string
-	sl    []int
-}
-
 func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	maxI := 10000
-
 	expectedSum := (maxI - 1) * maxI / 2
 	wg := &sync.WaitGroup{}
 	wgInput := &sync.WaitGroup{}
@@ -27,16 +19,7 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 		go func(j int) {
 			defer wgInput.Done()
 			for i := maxI / maxIn * j; i < maxI*(j+1)/maxIn; i++ {
-				ch.In() <- &s{
-					child: &s{
-						i:  i - 1,
-						a:  "child",
-						sl: []int{i - 1},
-					},
-					i:  i,
-					a:  "parent",
-					sl: []int{i},
-				}
+				ch.In() <- strconv.Itoa(i)
 			}
 		}(j)
 	}
@@ -61,13 +44,12 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	for i := 0; i < maxOut; i++ {
 		go func() {
 			defer wg.Done()
-			err := ch.ProcessOut(func(val []interface{}) error {
-				//time.Sleep(100 * time.Millisecond)
-				//fmt.Printf("address of slice %p \n", &val)
-				for _, e := range val {
-					got <- e.(*s).i
+			err := ch.ProcessOut(func(val vector.Vector) error {
+				for i := 0; i < val.End(); i++ {
+					val := val.Get(i)
+					got <- val.(int)
 				}
-				time.Sleep(400 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 				return nil
 			})
 			if err != nil {
@@ -82,23 +64,23 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 }
 
 func TestBatchingChannel(t *testing.T) {
-	ch := batchingchannels.NewBatchingChannel(50)
+	ch := batchingchannels.NewBatchingChannel(context.Background(), 2, 50, vector.AllocateIntVector)
 	testBatches(t, ch)
 
-	ch = batchingchannels.NewBatchingChannel(3)
+	ch = batchingchannels.NewBatchingChannel(context.Background(), 2, 3, vector.AllocateIntVector)
 	testBatches(t, ch)
 
-	ch = batchingchannels.NewBatchingChannel(1)
+	ch = batchingchannels.NewBatchingChannel(context.Background(), 2, 1, vector.AllocateIntVector)
 	testChannelConcurrentAccessors(t, "batching channel", ch)
 }
 
 func TestBatchingChannelCap(t *testing.T) {
-	ch := batchingchannels.NewBatchingChannel(5)
+	ch := batchingchannels.NewBatchingChannel(context.Background(), 2, 5, vector.AllocateIntVector)
 	if ch.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")
 	}
-}.
-*/
+}*/
+
 func testChannelConcurrentAccessors(t *testing.T, name string, ch *batchingchannels.BatchingChannel) {
 	// no asserts here, this is just for the race detector's benefit
 	go ch.Len()

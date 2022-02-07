@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
 )
 
 func main() {
+	start := time.Now()
 	/*
 		NOT USED. Just to show how to get a io.Reader from a ftp file
 			s, err := sftp.NewSFTPClient(host, key, user, pass)
@@ -47,4 +50,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	elapsed := time.Since(start)
+	fmt.Println(elapsed)
 }

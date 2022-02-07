@@ -3,6 +3,7 @@ package file
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"sync"
 
 	"io"
@@ -24,23 +25,6 @@ type Info struct {
 	OutputPath    string
 	totalRows     int
 	PrintMemUsage bool
-}
-
-// Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.
-func (f *Info) Sort(file io.Reader) error {
-	ans := f.Allocate(0)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		text := scanner.Text()
-		err := vector.Sort(ans, text)
-		if err != nil {
-			return err
-		}
-	}
-	if scanner.Err() != nil {
-		return scanner.Err()
-	}
-	return nil
 }
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
@@ -74,6 +58,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			mu.Lock()
 			chunkIdx++
 			chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+			fmt.Println("Start new chunk", chunkPath)
 			mu.Unlock()
 			v.Sort()
 			err := v.Dump(chunkPath)
@@ -82,6 +67,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			}
 			mu.Lock()
 			chunkPaths = append(chunkPaths, chunkPath)
+			fmt.Println("Done new chunk", chunkPath)
 			mu.Unlock()
 			return nil
 		})
