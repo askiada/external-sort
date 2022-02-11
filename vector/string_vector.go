@@ -28,10 +28,11 @@ func (v *StringVec) Get(i int) interface{} {
 	return v.s[i]
 }
 
-func (v *StringVec) Sort() {
+func (v *StringVec) Sort() error {
 	sort.Slice(v.s, func(i, j int) bool {
 		return v.Less(v.Get(i), v.Get(j))
 	})
+	return nil
 }
 func (v *StringVec) End() int {
 	return len(v.s)
@@ -51,7 +52,7 @@ func (v *StringVec) ConvertToString(value interface{}) (string, error) {
 }
 
 func (v *StringVec) Dump(filename string) error {
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return errors.Errorf("failed creating file: %s", err)
 	}

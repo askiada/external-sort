@@ -18,5 +18,5 @@ type Vector interface {
 	// Reset Clear the content in the vector
 	Reset()
 	// Sort sort the vector in ascending order
-	Sort()
+	Sort() error
 }

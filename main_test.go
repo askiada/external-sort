@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -12,18 +11,21 @@ import (
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
-
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func prepareChunks(ctx context.Context, t *testing.T, filename, outputFilename string, chunkSize int) (*file.Info, []string) {
+type allocator func(int) vector.Vector
+
+func prepareChunks(ctx context.Context, t *testing.T, filename, outputFilename string, chunkSize int, allocate allocator) (*file.Info, []string) {
 	t.Helper()
 	f, err := os.Open(filename)
 	assert.NoError(t, err)
 
 	fI := &file.Info{
 		Reader:     f,
-		Allocate:   vector.AllocateIntVector,
+		Allocate:   allocate,
 		OutputPath: outputFilename,
 	}
 	chunkPaths, err := fI.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
@@ -31,7 +33,7 @@ func prepareChunks(ctx context.Context, t *testing.T, filename, outputFilename s
 
 	t.Cleanup(func() {
 		defer f.Close()
-		dir, err := ioutil.ReadDir("testdata/chunks")
+		dir, err := os.ReadDir("testdata/chunks")
 		assert.NoError(t, err)
 		for _, d := range dir {
 			err = os.RemoveAll(path.Join("testdata/chunks", d.Name()))
@@ -76,7 +78,7 @@ func Test(t *testing.T) {
 				bufferSize := bufferSize
 				t.Run(name+"_"+strconv.Itoa(chunkSize)+"_"+strconv.Itoa(bufferSize), func(t *testing.T) {
 					ctx := context.Background()
-					fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, chunkSize)
+					fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, chunkSize, vector.AllocateIntVector)
 					fI.OutputPath = outputFilename
 					err := fI.MergeSort(chunkPaths, bufferSize)
 					assert.NoError(t, err)
@@ -119,7 +121,7 @@ func TestSimple(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, 21)
+			fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, 21, vector.AllocateIntVector)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
@@ -134,6 +136,60 @@ func TestSimple(t *testing.T) {
 			assert.Equal(t, len(expectedOutput), count)
 			assert.True(t, errors.Is(err, expectedErr))
 			outputFile.Close()
+		})
+	}
+}
+
+func TestTableVector(t *testing.T) {
+	tcs := map[string]struct {
+		filename       string
+		outputFilename string
+		want           []string
+	}{
+		"table_vector": {
+			filename: "testdata/table_vector.tsv",
+			want: []string{
+				"9	1	b",
+				"6	2	a",
+				"8	3	z",
+				"13	4	z",
+				"4	5	z",
+				"11	6	z",
+				"1	7	z",
+				"15	8	z",
+				"3	9	z",
+				"5	10	z",
+				"2	11	z",
+				"12	12	z",
+				"14	13	z",
+				"7	14	z",
+				"10	15	z",
+			},
+			outputFilename: "testdata/chunks/output.tsv",
+		},
+	}
+
+	ctx := context.Background()
+	for name, tc := range tcs {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			f, chunkPaths := prepareChunks(ctx, t, tc.filename, tc.outputFilename, 3, vector.AllocateTableVector("\t", 1))
+			err := f.MergeSort(chunkPaths, 3)
+			assert.NoError(t, err)
+
+			outputFile, err := os.Open(tc.outputFilename)
+			assert.NoError(t, err)
+			defer outputFile.Close()
+
+			outputScanner := bufio.NewScanner(outputFile)
+			var got []string
+			for outputScanner.Scan() {
+				got = append(got, outputScanner.Text())
+				require.NoError(t, outputScanner.Err())
+			}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("(-want +got):\n%s", diff)
+			}
 		})
 	}
 }

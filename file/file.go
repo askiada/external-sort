@@ -4,18 +4,16 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"sync"
-
 	"io"
 	"path"
 	"strconv"
+	"sync"
 
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
-
-	"github.com/pkg/errors"
 )
 
 type Info struct {
@@ -30,9 +28,8 @@ type Info struct {
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
 // Store all the chunks in a folder an returns all the paths.
 func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpSize int, maxWorkers int64) ([]string, error) {
-	fn := "scan and sort and dump"
 	if dumpSize <= 0 {
-		return nil, errors.Wrap(errors.New("dump size must be greater than 0"), fn)
+		return nil, errors.New("dump size must be greater than 0")
 	}
 
 	if f.PrintMemUsage && f.mu == nil {
@@ -41,7 +38,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 
 	err := clearFolder(chunkFolder)
 	if err != nil {
-		return nil, errors.Wrap(err, fn)
+		return nil, errors.Wrap(err, "cleaning up temporary folder")
 	}
 	row := 0
 	chunkPaths := []string{}
@@ -58,19 +55,23 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			mu.Lock()
 			chunkIdx++
 			chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-			fmt.Println("Start new chunk", chunkPath)
 			mu.Unlock()
-			v.Sort()
-			err := v.Dump(chunkPath)
+			err := v.Sort()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "sorting vector")
+			}
+			err = v.Dump(chunkPath)
+			if err != nil {
+				return errors.Wrap(err, "dumping vector")
 			}
 			mu.Lock()
 			chunkPaths = append(chunkPaths, chunkPath)
-			fmt.Println("Done new chunk", chunkPath)
 			mu.Unlock()
 			return nil
 		})
+		if f.PrintMemUsage {
+			fmt.Println("Done creating chunks")
+		}
 	}()
 
 	for scanner.Scan() {
@@ -85,7 +86,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		row++
 	}
 	if scanner.Err() != nil {
-		return nil, errors.Wrap(scanner.Err(), fn)
+		return nil, errors.Wrap(scanner.Err(), "scanning file")
 	}
 	batchChan.Close()
 	wg.Wait()
