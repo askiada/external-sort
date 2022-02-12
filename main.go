@@ -8,6 +8,7 @@ import (
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 )
 
 func main() {
@@ -33,14 +34,23 @@ func main() {
 	}
 	defer f.Close()
 	fI := &file.Info{
-		Reader:        f,
-		Allocate:      vector.AllocateStringVector,
+		Reader: f,
+		Allocate: &vector.Allocate{
+			Vector: vector.AllocateSlice,
+			Key: func(line string) (key.Key, error) {
+				return key.AllocateTsv(line, 0)
+			},
+		},
 		OutputPath:    "output.tsv",
 		PrintMemUsage: false,
 	}
 
+	// line 1
+	// CreateSortedChunks max memory = 100000*1
+	// CreateSortedChunks max memory = 100000*1*maxWorkers
+
 	// create small files with maximum 30 rows in each
-	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 100000, 100)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "data/chunks", 1000000, 4)
 	if err != nil {
 		panic(err)
 	}

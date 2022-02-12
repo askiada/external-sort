@@ -1,22 +1,46 @@
 package vector
 
+import (
+	"bufio"
+	"os"
+
+	"github.com/askiada/external-sort/vector/key"
+	"github.com/pkg/errors"
+)
+
+type Allocate struct {
+	Vector func(int, func(line string) (key.Key, error)) Vector
+	Key    func(line string) (key.Key, error)
+}
+
 type Vector interface {
 	// Get Access i-th element
-	Get(i int) interface{}
+	Get(i int) *Element
 	// PushBack Add item at the end
-	PushBack(value interface{}) error
-	// Less Returns wether v1 is smaller than v2
-	Less(v1, v2 interface{}) bool
-	// Dump Create a file and store the underluing data
-	Dump(filename string) error
+	PushBack(line string) error
 	// FrontShift Remove the first element
 	FrontShift()
-	// End Length of the Vector
-	End() int
-	// ConvertToString Convert the underlying data to a string
-	ConvertToString(value interface{}) (string, error)
+	// Len Length of the Vector
+	Len() int
 	// Reset Clear the content in the vector
 	Reset()
 	// Sort sort the vector in ascending order
 	Sort()
+}
+
+func Dump(v Vector, filename string) error {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return errors.Errorf("failed creating file: %s", err)
+	}
+	datawriter := bufio.NewWriter(file)
+	for i := 0; i < v.Len(); i++ {
+		_, err = datawriter.WriteString(v.Get(i).Line + "\n")
+		if err != nil {
+			return errors.Errorf("failed writing file: %s", err)
+		}
+	}
+	datawriter.Flush()
+	file.Close()
+	return nil
 }

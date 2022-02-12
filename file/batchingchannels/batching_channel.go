@@ -15,7 +15,7 @@ type BatchingChannel struct {
 	input     chan string
 	output    chan vector.Vector
 	buffer    vector.Vector
-	allocate  func(i int) vector.Vector
+	allocate  *vector.Allocate
 	g         *errgroup.Group
 	sem       *semaphore.Weighted
 	size      int
@@ -23,7 +23,7 @@ type BatchingChannel struct {
 	dCtx      context.Context
 }
 
-func NewBatchingChannel(ctx context.Context, maxWorker int64, size int, allocate func(i int) vector.Vector) *BatchingChannel {
+func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker int64, size int) *BatchingChannel {
 	if size == 0 {
 		panic("channels: BatchingChannel does not support unbuffered behaviour")
 	}
@@ -49,10 +49,9 @@ func (ch *BatchingChannel) In() chan<- string {
 	return ch.input
 }
 
-// Out returns a <-chan interface{} in order that BatchingChannel conforms to the standard Channel interface provided
-// by this package, however each output value is guaranteed to be of type []interface{} - a slice collecting the most
-// recent batch of values sent on the In channel. The slice is guaranteed to not be empty or nil. In practice the net
-// result is that you need an additional type assertion to access the underlying values.
+// Out returns a <-chan vector.Vector in order that BatchingChannel conforms to the standard Channel interface provided
+// by this package, however each output value is guaranteed to be of type vector.Vector - a vector collecting the most
+// recent batch of values sent on the In channel. The vector is guaranteed to not be empty or nil.
 func (ch *BatchingChannel) Out() <-chan vector.Vector {
 	return ch.output
 }
@@ -88,20 +87,25 @@ func (ch *BatchingChannel) Close() {
 }
 
 func (ch *BatchingChannel) batchingBuffer() {
-	ch.buffer = ch.allocate(ch.size)
+	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 	for {
 		elem, open := <-ch.input
 		if open {
-			ch.buffer.PushBack(elem)
+			err := ch.buffer.PushBack(elem)
+			if err != nil {
+				ch.g.Go(func() error {
+					return err
+				})
+			}
 		} else {
-			if ch.buffer.End() > 0 {
+			if ch.buffer.Len() > 0 {
 				ch.output <- ch.buffer
 			}
 			break
 		}
-		if ch.buffer.End() == ch.size {
+		if ch.buffer.Len() == ch.size {
 			ch.output <- ch.buffer
-			ch.buffer = ch.allocate(ch.size)
+			ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 		}
 	}
 

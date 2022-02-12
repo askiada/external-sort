@@ -9,6 +9,7 @@ import (
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,8 +21,11 @@ func BenchmarkMergeSort(b *testing.B) {
 	assert.NoError(b, err)
 
 	fI := &file.Info{
-		Reader:     f,
-		Allocate:   vector.AllocateIntVector,
+		Reader: f,
+		Allocate: &vector.Allocate{
+			Vector: vector.AllocateSlice,
+			Key:    key.AllocateInt,
+		},
 		OutputPath: "testdata/chunks/output.tsv",
 	}
 	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)

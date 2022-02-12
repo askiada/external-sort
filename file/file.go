@@ -3,7 +3,6 @@ package file
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"sync"
 
 	"io"
@@ -21,7 +20,7 @@ import (
 type Info struct {
 	mu            *MemUsage
 	Reader        io.Reader
-	Allocate      func(int) vector.Vector
+	Allocate      *vector.Allocate
 	OutputPath    string
 	totalRows     int
 	PrintMemUsage bool
@@ -49,46 +48,43 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	mu := sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	batchChan := batchingchannels.NewBatchingChannel(context.Background(), maxWorkers, dumpSize, f.Allocate)
-	var globalErr error
+	batchChan := batchingchannels.NewBatchingChannel(context.Background(), f.Allocate, maxWorkers, dumpSize)
 	go func() {
 		defer wg.Done()
-		chunkIdx := 0
-		globalErr = batchChan.ProcessOut(func(v vector.Vector) error {
-			mu.Lock()
-			chunkIdx++
-			chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-			fmt.Println("Start new chunk", chunkPath)
-			mu.Unlock()
-			v.Sort()
-			err := v.Dump(chunkPath)
-			if err != nil {
-				return err
+		for scanner.Scan() {
+			if f.PrintMemUsage {
+				f.mu.Collect()
 			}
-			mu.Lock()
-			chunkPaths = append(chunkPaths, chunkPath)
-			fmt.Println("Done new chunk", chunkPath)
-			mu.Unlock()
-			return nil
-		})
+			text := scanner.Text()
+			batchChan.In() <- text
+			row++
+		}
+		batchChan.Close()
 	}()
 
-	for scanner.Scan() {
-		if globalErr != nil {
-			return nil, globalErr
+	chunkIdx := 0
+	err = batchChan.ProcessOut(func(v vector.Vector) error {
+		mu.Lock()
+		chunkIdx++
+		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+		mu.Unlock()
+		v.Sort()
+		err := vector.Dump(v, chunkPath)
+		if err != nil {
+			return err
 		}
-		if f.PrintMemUsage {
-			f.mu.Collect()
-		}
-		text := scanner.Text()
-		batchChan.In() <- text
-		row++
+		mu.Lock()
+		chunkPaths = append(chunkPaths, chunkPath)
+		mu.Unlock()
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, fn)
 	}
+	wg.Wait()
 	if scanner.Err() != nil {
 		return nil, errors.Wrap(scanner.Err(), fn)
 	}
-	batchChan.Close()
-	wg.Wait()
 	f.totalRows = row
 	return chunkPaths, nil
 }
@@ -103,7 +99,7 @@ func addNewDump(ctx context.Context, g *errgroup.Group, ans vector.Vector, sem *
 	chunkPath = path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
 	g.Go(func() error {
 		defer sem.Release(1)
-		err := ans.Dump(chunkPath)
+		err := vector.Dump(ans, chunkPath)
 		if err != nil {
 			return errors.Wrap(err, fn)
 		}

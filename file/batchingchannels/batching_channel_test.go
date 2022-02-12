@@ -9,6 +9,7 @@ import (
 
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,23 +35,23 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 		ch.Close()
 	}()
 
-	got := make(chan int, maxI)
+	got := make(chan *vector.Element, maxI)
 	wgSum := &sync.WaitGroup{}
 	wgSum.Add(1)
 	gotSum := 0
 	go func() {
 		defer wgSum.Done()
 		for g := range got {
-			gotSum += g
+			gotSum += g.Key.Get().(int)
 		}
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := ch.ProcessOut(func(val vector.Vector) error {
-			for i := 0; i < val.End(); i++ {
+			for i := 0; i < val.Len(); i++ {
 				val := val.Get(i)
-				got <- val.(int)
+				got <- val
 			}
 			time.Sleep(3 * time.Millisecond)
 			return nil
@@ -66,18 +67,26 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 }
 
 func TestBatchingChannel(t *testing.T) {
-	ch := batchingchannels.NewBatchingChannel(context.Background(), 2, 50, vector.AllocateIntVector)
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key:    key.AllocateInt,
+	}
+	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 50)
 	testBatches(t, ch)
 
-	ch = batchingchannels.NewBatchingChannel(context.Background(), 2, 3, vector.AllocateIntVector)
+	ch = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 3)
 	testBatches(t, ch)
 
-	ch = batchingchannels.NewBatchingChannel(context.Background(), 2, 1, vector.AllocateIntVector)
+	ch = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 1)
 	testChannelConcurrentAccessors(t, "batching channel", ch)
 }
 
 func TestBatchingChannelCap(t *testing.T) {
-	ch := batchingchannels.NewBatchingChannel(context.Background(), 2, 5, vector.AllocateIntVector)
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key:    key.AllocateInt,
+	}
+	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 5)
 	if ch.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")
 	}

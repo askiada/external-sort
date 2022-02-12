@@ -12,18 +12,19 @@ import (
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func prepareChunks(ctx context.Context, t *testing.T, filename, outputFilename string, chunkSize int) (*file.Info, []string) {
+func prepareChunks(ctx context.Context, t *testing.T, allocate *vector.Allocate, filename, outputFilename string, chunkSize int) (*file.Info, []string) {
 	t.Helper()
 	f, err := os.Open(filename)
 	assert.NoError(t, err)
 
 	fI := &file.Info{
 		Reader:     f,
-		Allocate:   vector.AllocateIntVector,
+		Allocate:   allocate,
 		OutputPath: outputFilename,
 	}
 	chunkPaths, err := fI.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
@@ -42,7 +43,7 @@ func prepareChunks(ctx context.Context, t *testing.T, filename, outputFilename s
 	return fI, chunkPaths
 }
 
-func Test(t *testing.T) {
+func TestBasics(t *testing.T) {
 	tcs := map[string]struct {
 		filename       string
 		outputFilename string
@@ -64,7 +65,10 @@ func Test(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key:    key.AllocateInt,
+	}
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -76,7 +80,7 @@ func Test(t *testing.T) {
 				bufferSize := bufferSize
 				t.Run(name+"_"+strconv.Itoa(chunkSize)+"_"+strconv.Itoa(bufferSize), func(t *testing.T) {
 					ctx := context.Background()
-					fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, chunkSize)
+					fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, chunkSize)
 					fI.OutputPath = outputFilename
 					err := fI.MergeSort(chunkPaths, bufferSize)
 					assert.NoError(t, err)
@@ -98,7 +102,7 @@ func Test(t *testing.T) {
 	}
 }
 
-func TestSimple(t *testing.T) {
+func Test100Elems(t *testing.T) {
 	tcs := map[string]struct {
 		filename       string
 		outputFilename string
@@ -111,7 +115,10 @@ func TestSimple(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key:    key.AllocateInt,
+	}
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -119,7 +126,61 @@ func TestSimple(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			fI, chunkPaths := prepareChunks(ctx, t, filename, outputFilename, 21)
+			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
+			err := fI.MergeSort(chunkPaths, 10)
+			assert.NoError(t, err)
+			outputFile, err := os.Open(outputFilename)
+			assert.NoError(t, err)
+			outputScanner := bufio.NewScanner(outputFile)
+			count := 0
+			for outputScanner.Scan() {
+				assert.Equal(t, expectedOutput[count], outputScanner.Text())
+				count++
+			}
+			assert.NoError(t, outputScanner.Err())
+			assert.Equal(t, len(expectedOutput), count)
+			assert.True(t, errors.Is(err, expectedErr))
+			outputFile.Close()
+		})
+	}
+}
+
+func TestTsvKey(t *testing.T) {
+	tcs := map[string]struct {
+		filename       string
+		outputFilename string
+		expectedErr    error
+		expectedOutput []string
+	}{
+		"Tsv file": {
+			filename: "testdata/multifields.tsv",
+			expectedOutput: []string{"3	D	equipment",
+				"7	G	inflation",
+				"6	H	delivery",
+				"9	I	child",
+				"5	J	magazine",
+				"8	M	garbage",
+				"1	N	guidance",
+				"10	S	feedback",
+				"2	T	library",
+				"4	Z	news"},
+			outputFilename: "testdata/chunks/output.tsv",
+		},
+	}
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key: func(line string) (key.Key, error) {
+			return key.AllocateTsv(line, 1)
+		},
+	}
+	for name, tc := range tcs {
+		filename := tc.filename
+		outputFilename := tc.outputFilename
+		expectedOutput := tc.expectedOutput
+		expectedErr := tc.expectedErr
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)

@@ -40,7 +40,7 @@ func bToMb(b uint64) uint64 {
 }
 
 func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
-	output := f.Allocate(k)
+	output := f.Allocate.Vector(k, f.Allocate.Key)
 	if f.PrintMemUsage && f.mu == nil {
 		f.mu = &MemUsage{}
 	}
@@ -68,7 +68,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		if f.PrintMemUsage {
 			f.mu.Collect()
 		}
-		if chunks.len() == 0 || output.End() == k {
+		if chunks.len() == 0 || output.Len() == k {
 			err = WriteBuffer(outputBuffer, output)
 			if err != nil {
 				return err
@@ -80,20 +80,20 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
 		minChunk, minValue, minIdx := chunks.min()
-		err = output.PushBack(minValue)
+		err = output.PushBack(minValue.Line)
 		if err != nil {
 			return err
 		}
 		// remove the first element from the chunk we pulled the smallest value
 		minChunk.buffer.FrontShift()
 		isEmpty := false
-		if minChunk.buffer.End() == 0 {
+		if minChunk.buffer.Len() == 0 {
 			err = minChunk.pullSubset(k)
 			if err != nil {
 				return err
 			}
 			// if after pulling data the chunk buffer is still empty then we can remove it
-			if minChunk.buffer.End() == 0 {
+			if minChunk.buffer.Len() == 0 {
 				isEmpty = true
 				toShrink = append(toShrink, minIdx)
 				err = chunks.shrink(toShrink)
@@ -120,12 +120,8 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 }
 
 func WriteBuffer(buffer *bufio.Writer, rows vector.Vector) error {
-	for i := 0; i < rows.End(); i++ {
-		val, err := rows.ConvertToString(rows.Get(i))
-		if err != nil {
-			return err
-		}
-		_, err = buffer.WriteString(val + "\n")
+	for i := 0; i < rows.Len(); i++ {
+		_, err := buffer.WriteString(rows.Get(i).Line + "\n")
 		if err != nil {
 			return err
 		}
