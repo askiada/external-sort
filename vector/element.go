@@ -3,8 +3,10 @@ package vector
 import "github.com/askiada/external-sort/vector/key"
 
 type Element struct {
-	Key  key.Key
-	Line string
+	Key    key.Key
+	Offset int64
+	Len    int
+	//Line   string
 }
 
 // Less returns wether v1 is smaller than v2 based on the keys.

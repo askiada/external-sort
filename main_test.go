@@ -25,6 +25,7 @@ func prepareChunks(ctx context.Context, t *testing.T, allocate *vector.Allocate,
 	fI := &file.Info{
 		Reader:     f,
 		Allocate:   allocate,
+		InputPath:  filename,
 		OutputPath: outputFilename,
 	}
 	chunkPaths, err := fI.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
@@ -120,7 +121,7 @@ func Test100Elems(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
+			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 2)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
