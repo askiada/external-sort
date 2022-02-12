@@ -121,7 +121,47 @@ func Test100Elems(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 2)
+			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 50)
+			err := fI.MergeSort(chunkPaths, 10)
+			assert.NoError(t, err)
+			outputFile, err := os.Open(outputFilename)
+			assert.NoError(t, err)
+			outputScanner := bufio.NewScanner(outputFile)
+			count := 0
+			for outputScanner.Scan() {
+				assert.Equal(t, expectedOutput[count], outputScanner.Text())
+				count++
+			}
+			assert.NoError(t, outputScanner.Err())
+			assert.Equal(t, len(expectedOutput), count)
+			assert.True(t, errors.Is(err, expectedErr))
+			outputFile.Close()
+		})
+	}
+}
+
+func Test10Elems(t *testing.T) {
+	tcs := map[string]struct {
+		filename       string
+		outputFilename string
+		expectedErr    error
+		expectedOutput []string
+	}{
+		"100 elems": {
+			filename:       "testdata/10elems.tsv",
+			expectedOutput: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+			outputFilename: "testdata/chunks/output.tsv",
+		},
+	}
+	allocate := vector.DefaultVector(key.AllocateInt)
+	for name, tc := range tcs {
+		filename := tc.filename
+		outputFilename := tc.outputFilename
+		expectedOutput := tc.expectedOutput
+		expectedErr := tc.expectedErr
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 50)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
@@ -162,9 +202,13 @@ func TestTsvKey(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := vector.DefaultVector(func(line string) (key.Key, error) {
-		return key.AllocateTsv(line, 1)
-	})
+	allocate := &vector.Allocate{
+		Vector: vector.AllocateSlice,
+		Key: func(line string) (key.Key, error) {
+			return key.AllocateTsv(line, 1)
+		},
+		EmptyKey: key.AllocateEmptyTsv,
+	}
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename

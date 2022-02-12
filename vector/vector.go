@@ -12,7 +12,7 @@ import (
 type Allocate struct {
 	Vector   func(int, func(line string) (key.Key, error)) Vector
 	Key      func(line string) (key.Key, error)
-	EmptyKey func() (key.Key, error)
+	EmptyKey func() key.Key
 }
 
 func DefaultVector(allocateKey func(line string) (key.Key, error)) *Allocate {
@@ -51,13 +51,6 @@ func Dump(v Vector, filename string) error {
 
 	datawriter := bufio.NewWriter(file)
 	for i := 0; i < v.Len(); i++ {
-		/*originalFile.Seek(v.Get(i).Offset, 0)
-		data := make([]byte, v.Get(i).Len)
-		_, err := originalFile.Read(data)
-		if err != nil {
-			return err
-		}*/
-
 		text := v.Get(i).Key.String() + "\t" + strconv.FormatInt(v.Get(i).Offset, 10) + "\t" + strconv.Itoa(v.Get(i).Len) + "\n"
 		_, err = datawriter.WriteString(text)
 		if err != nil {
@@ -66,6 +59,5 @@ func Dump(v Vector, filename string) error {
 	}
 	datawriter.Flush()
 	file.Close()
-	//originalFile.Close()
 	return nil
 }

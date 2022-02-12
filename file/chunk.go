@@ -19,7 +19,7 @@ type chunkInfo struct {
 	originalFile *os.File
 	scanner      *bufio.Scanner
 	buffer       []*vector.Element
-	emptyKey     func() (key.Key, error)
+	emptyKey     func() key.Key
 	filename     string
 }
 
@@ -36,23 +36,19 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 			return err
 		}
 
-		keyStruct, err := c.emptyKey()
-		if err != nil {
-			return err
-		}
-
+		keyStruct := c.emptyKey()
 		err = keyStruct.FromString(keyVal)
 		if err != nil {
 			return err
 		}
-		len, err := strconv.Atoi(splitted[2])
+		l, err := strconv.Atoi(splitted[2])
 		if err != nil {
 			return err
 		}
 		c.buffer = append(c.buffer, &vector.Element{
 			Key:    keyStruct,
 			Offset: offset,
-			Len:    len,
+			Len:    l,
 		})
 		i++
 	}
@@ -68,7 +64,7 @@ type chunks struct {
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(inputPath, chunkPath string, emptyKey func() (key.Key, error), size int) error {
+func (c *chunks) new(inputPath, chunkPath string, emptyKey func() key.Key, size int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
@@ -157,6 +153,9 @@ func (c *chunks) min() (minChunk *chunkInfo, minValue []byte, minIdx int, err er
 	_, err = c.list[0].originalFile.Read(data)
 	if err != nil {
 		return minChunk, minValue, minIdx, err
+	}
+	if data[len(data)-1] != '\n' {
+		data = append(data, '\n')
 	}
 	minValue = data
 	minIdx = 0

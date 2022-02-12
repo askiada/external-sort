@@ -75,6 +75,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 			if err != nil {
 				return err
 			}
+			output = nil
 		}
 		if chunks.len() == 0 {
 			break
@@ -128,6 +129,5 @@ func WriteBuffer(buffer *bufio.Writer, rows [][]byte) error {
 			return err
 		}
 	}
-	rows = nil
 	return nil
 }
