@@ -12,12 +12,12 @@ import (
 	"github.com/askiada/external-sort/file/circularqueue"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/pkg/errors"
+	"golang.org/x/exp/mmap"
+	"golang.org/x/sync/errgroup"
 )
 
-// chunkInfo Describe a chunk.
+// chunkInfo Describe a chunk .
 type chunkInfo struct {
 	file     *os.File
 	scanner  *bufio.Scanner
@@ -75,7 +75,7 @@ func (c *chunks) new(inputPath, chunkPath string, emptyKey func() key.Key, size 
 	}
 	c.originalFiles = circularqueue.New(circQueueSize)
 	for i := 0; i < circQueueSize; i++ {
-		originalFile, err := os.Open(inputPath)
+		originalFile, err := mmap.Open(inputPath)
 		if err != nil {
 			return err
 		}
@@ -179,10 +179,9 @@ func (c *chunks) WriteBuffer(buffer *bufio.Writer, elems []*vector.Element) erro
 		elem := elem
 		out := out
 		g.Go(func() error {
-			return c.originalFiles.Run(func(originalFile *os.File) error {
-				originalFile.Seek(elem.Offset, 0)
+			return c.originalFiles.Run(func(originalFile *mmap.ReaderAt) error {
 				data := make([]byte, elem.Len)
-				_, err := originalFile.Read(data)
+				_, err := originalFile.ReadAt(data, elem.Offset)
 				if err != nil {
 					return err
 				}
