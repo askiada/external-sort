@@ -33,11 +33,11 @@ func (v *SliceVec) Len() int {
 }
 
 func (v *SliceVec) PushBack(line string) error {
-	key, err := v.allocateKey(line)
+	k, err := v.allocateKey(line)
 	if err != nil {
 		return err
 	}
-	v.s = append(v.s, &Element{Line: line, Key: key})
+	v.s = append(v.s, &Element{Line: line, Key: k})
 	return nil
 }
 

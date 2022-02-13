@@ -11,8 +11,6 @@ import (
 
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/pkg/errors"
 )
@@ -38,7 +36,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		f.mu = &MemUsage{}
 	}
 
-	err := clearFolder(chunkFolder)
+	err := clearChunkFolder(chunkFolder)
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
 	}
@@ -87,23 +85,4 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	}
 	f.totalRows = row
 	return chunkPaths, nil
-}
-
-// addNewDump Add a goroutine to create a new chunk file.
-// TODO: Too many parameters.
-func addNewDump(ctx context.Context, g *errgroup.Group, ans vector.Vector, sem *semaphore.Weighted, chunkFolder string, chunkIdx int) (chunkPath string, err error) {
-	fn := "add dump"
-	if err := sem.Acquire(ctx, 1); err != nil {
-		return "", err
-	}
-	chunkPath = path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-	g.Go(func() error {
-		defer sem.Release(1)
-		err := vector.Dump(ans, chunkPath)
-		if err != nil {
-			return errors.Wrap(err, fn)
-		}
-		return nil
-	})
-	return chunkPath, nil
 }

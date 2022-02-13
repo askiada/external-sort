@@ -18,10 +18,6 @@ func AllocateTsv(line string, pos int) (Key, error) {
 	return &String{splitted[pos]}, nil
 }
 
-func (k *Tsv) Get() interface{} {
-	return k.value
-}
-
 func (k *Tsv) Less(other Key) bool {
 	return k.value < other.(*Tsv).value
 }

@@ -65,10 +65,7 @@ func TestBasics(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := &vector.Allocate{
-		Vector: vector.AllocateSlice,
-		Key:    key.AllocateInt,
-	}
+	allocate := vector.DefaultVector(key.AllocateInt)
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -115,10 +112,7 @@ func Test100Elems(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := &vector.Allocate{
-		Vector: vector.AllocateSlice,
-		Key:    key.AllocateInt,
-	}
+	allocate := vector.DefaultVector(key.AllocateInt)
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -167,12 +161,9 @@ func TestTsvKey(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := &vector.Allocate{
-		Vector: vector.AllocateSlice,
-		Key: func(line string) (key.Key, error) {
-			return key.AllocateTsv(line, 1)
-		},
-	}
+	allocate := vector.DefaultVector(func(line string) (key.Key, error) {
+		return key.AllocateTsv(line, 1)
+	})
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename

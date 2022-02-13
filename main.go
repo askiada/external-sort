@@ -35,12 +35,9 @@ func main() {
 	defer f.Close()
 	fI := &file.Info{
 		Reader: f,
-		Allocate: &vector.Allocate{
-			Vector: vector.AllocateSlice,
-			Key: func(line string) (key.Key, error) {
-				return key.AllocateTsv(line, 0)
-			},
-		},
+		Allocate: vector.DefaultVector(func(line string) (key.Key, error) {
+			return key.AllocateTsv(line, 0)
+		}),
 		OutputPath:    "output.tsv",
 		PrintMemUsage: false,
 	}

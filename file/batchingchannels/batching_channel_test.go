@@ -13,6 +13,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type Int struct {
+	value int
+}
+
+func AllocateInt(line string) (key.Key, error) {
+	num, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, err
+	}
+	return &Int{num}, nil
+}
+
+func (k *Int) Get() int {
+	return k.value
+}
+
+func (k *Int) Less(other key.Key) bool {
+	return k.value < other.(*Int).value
+}
 func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	maxI := 10000
 	expectedSum := (maxI - 1) * maxI / 2
@@ -42,7 +61,7 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	go func() {
 		defer wgSum.Done()
 		for g := range got {
-			gotSum += g.Key.Get().(int)
+			gotSum += g.Key.(*Int).Get()
 		}
 	}()
 	wg.Add(1)
@@ -67,10 +86,7 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 }
 
 func TestBatchingChannel(t *testing.T) {
-	allocate := &vector.Allocate{
-		Vector: vector.AllocateSlice,
-		Key:    key.AllocateInt,
-	}
+	allocate := vector.DefaultVector(AllocateInt)
 	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 50)
 	testBatches(t, ch)
 
@@ -82,10 +98,7 @@ func TestBatchingChannel(t *testing.T) {
 }
 
 func TestBatchingChannelCap(t *testing.T) {
-	allocate := &vector.Allocate{
-		Vector: vector.AllocateSlice,
-		Key:    key.AllocateInt,
-	}
+	allocate := vector.DefaultVector(AllocateInt)
 	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 5)
 	if ch.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")

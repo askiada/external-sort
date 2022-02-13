@@ -21,11 +21,8 @@ func BenchmarkMergeSort(b *testing.B) {
 	assert.NoError(b, err)
 
 	fI := &file.Info{
-		Reader: f,
-		Allocate: &vector.Allocate{
-			Vector: vector.AllocateSlice,
-			Key:    key.AllocateInt,
-		},
+		Reader:     f,
+		Allocate:   vector.DefaultVector(key.AllocateInt),
 		OutputPath: "testdata/chunks/output.tsv",
 	}
 	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)

@@ -33,6 +33,7 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 	return nil
 }
 
+// chunks Pull of chunks.
 type chunks struct {
 	list []*chunkInfo
 }
@@ -88,6 +89,7 @@ func (c *chunks) shrink(toShrink []int) error {
 	return nil
 }
 
+// len total number of chunks.
 func (c *chunks) len() int {
 	return len(c.list)
 }

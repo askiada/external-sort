@@ -13,6 +13,13 @@ type Allocate struct {
 	Key    func(line string) (key.Key, error)
 }
 
+func DefaultVector(allocateKey func(line string) (key.Key, error)) *Allocate {
+	return &Allocate{
+		Vector: AllocateSlice,
+		Key:    allocateKey,
+	}
+}
+
 type Vector interface {
 	// Get Access i-th element
 	Get(i int) *Element

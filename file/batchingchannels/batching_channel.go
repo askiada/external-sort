@@ -18,9 +18,9 @@ type BatchingChannel struct {
 	allocate  *vector.Allocate
 	g         *errgroup.Group
 	sem       *semaphore.Weighted
+	dCtx      context.Context
 	size      int
 	maxWorker int64
-	dCtx      context.Context
 }
 
 func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker int64, size int) *BatchingChannel {
