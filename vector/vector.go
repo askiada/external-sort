@@ -44,11 +44,6 @@ func Dump(v Vector, filename string) error {
 	if err != nil {
 		return errors.Errorf("failed creating file (%s): %s", filename, err)
 	}
-	/*originalFile, err := os.Open(orignalFile)
-	if err != nil {
-		return errors.Errorf("failed opening file (%s): %s", orignalFile, err)
-	}*/
-
 	datawriter := bufio.NewWriter(file)
 	for i := 0; i < v.Len(); i++ {
 		text := v.Get(i).Key.String() + "\t" + strconv.FormatInt(v.Get(i).Offset, 10) + "\t" + strconv.Itoa(v.Get(i).Len) + "\n"

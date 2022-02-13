@@ -7,8 +7,8 @@ import (
 )
 
 type Int struct {
-	value int
 	text  string
+	value int
 }
 
 // dropCR drops a terminal \r from the data.

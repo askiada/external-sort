@@ -2,25 +2,28 @@ package file
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/askiada/external-sort/file/circularqueue"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pkg/errors"
 )
 
 // chunkInfo Describe a chunk.
 type chunkInfo struct {
-	file         *os.File
-	originalFile *os.File
-	scanner      *bufio.Scanner
-	buffer       []*vector.Element
-	emptyKey     func() key.Key
-	filename     string
+	file     *os.File
+	scanner  *bufio.Scanner
+	buffer   []*vector.Element
+	emptyKey func() key.Key
+	filename string
 }
 
 // pullSubset Add to vector the specified number of elements.
@@ -60,27 +63,32 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 
 // chunks Pull of chunks.
 type chunks struct {
-	list []*chunkInfo
+	list          []*chunkInfo
+	originalFiles *circularqueue.Circularqueue
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(inputPath, chunkPath string, emptyKey func() key.Key, size int) error {
+func (c *chunks) new(inputPath, chunkPath string, emptyKey func() key.Key, size int, circQueueSize int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
 	}
-	originalFile, err := os.Open(inputPath)
-	if err != nil {
-		return err
+	c.originalFiles = circularqueue.New(circQueueSize)
+	for i := 0; i < circQueueSize; i++ {
+		originalFile, err := os.Open(inputPath)
+		if err != nil {
+			return err
+		}
+		c.originalFiles.Add(originalFile)
 	}
+
 	scanner := bufio.NewScanner(f)
 	elem := &chunkInfo{
-		filename:     chunkPath,
-		file:         f,
-		originalFile: originalFile,
-		scanner:      scanner,
-		buffer:       make([]*vector.Element, 0, size),
-		emptyKey:     emptyKey,
+		filename: chunkPath,
+		file:     f,
+		scanner:  scanner,
+		buffer:   make([]*vector.Element, 0, size),
+		emptyKey: emptyKey,
 	}
 	err = elem.pullSubset(size)
 	if err != nil {
@@ -147,18 +155,55 @@ func (c *chunks) moveFirstChunkToCorrectIndex() {
 }
 
 // min Check all the first elements of all the chunks and returns the smallest value.
-func (c *chunks) min() (minChunk *chunkInfo, minValue []byte, minIdx int, err error) {
-	c.list[0].originalFile.Seek(c.list[0].buffer[0].Offset, 0)
-	data := make([]byte, c.list[0].buffer[0].Len)
-	_, err = c.list[0].originalFile.Read(data)
-	if err != nil {
-		return minChunk, minValue, minIdx, err
-	}
-	if data[len(data)-1] != '\n' {
-		data = append(data, '\n')
-	}
-	minValue = data
-	minIdx = 0
+func (c *chunks) min() (minChunk *chunkInfo, minElem *vector.Element, err error) {
 	minChunk = c.list[0]
-	return minChunk, minValue, minIdx, err
+	minElem = c.list[0].buffer[0]
+	return minChunk, minElem, err
+}
+
+func (c *chunks) WriteBuffer(buffer *bufio.Writer, elems []*vector.Element) error {
+	// var rows [][]byte
+
+	type rows struct {
+		data [][]byte
+	}
+
+	out := &rows{
+		data: make([][]byte, len(elems), len(elems)),
+	}
+	mu := &sync.Mutex{}
+
+	g, _ := errgroup.WithContext(context.Background())
+	for i, elem := range elems {
+		i := i
+		elem := elem
+		out := out
+		g.Go(func() error {
+			return c.originalFiles.Run(func(originalFile *os.File) error {
+				originalFile.Seek(elem.Offset, 0)
+				data := make([]byte, elem.Len)
+				_, err := originalFile.Read(data)
+				if err != nil {
+					return err
+				}
+				if data[len(data)-1] != '\n' {
+					data = append(data, '\n')
+				}
+				mu.Lock()
+				out.data[i] = data
+				mu.Unlock()
+				return nil
+			})
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	for _, row := range out.data {
+		_, err := buffer.Write(row)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

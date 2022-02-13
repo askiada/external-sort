@@ -80,7 +80,7 @@ func TestBasics(t *testing.T) {
 					ctx := context.Background()
 					fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, chunkSize)
 					fI.OutputPath = outputFilename
-					err := fI.MergeSort(chunkPaths, bufferSize)
+					err := fI.MergeSort(chunkPaths, bufferSize, bufferSize)
 					assert.NoError(t, err)
 					outputFile, err := os.Open(outputFilename)
 					assert.NoError(t, err)
@@ -122,7 +122,7 @@ func Test100Elems(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 50)
-			err := fI.MergeSort(chunkPaths, 10)
+			err := fI.MergeSort(chunkPaths, 10, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -162,7 +162,7 @@ func Test10Elems(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 50)
-			err := fI.MergeSort(chunkPaths, 10)
+			err := fI.MergeSort(chunkPaths, 10, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -217,7 +217,7 @@ func TestTsvKey(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
-			err := fI.MergeSort(chunkPaths, 10)
+			err := fI.MergeSort(chunkPaths, 10, 10)
 			assert.NoError(t, err)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)

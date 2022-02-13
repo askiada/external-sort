@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/askiada/external-sort/vector"
 	"github.com/cheggaaa/pb/v3"
 )
 
@@ -38,8 +39,8 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
-	output := [][]byte{}
+func (f *Info) MergeSort(chunkPaths []string, k, circQueueSize int) (err error) {
+	output := []*vector.Element{}
 	if f.PrintMemUsage && f.mu == nil {
 		f.mu = &MemUsage{}
 	}
@@ -49,7 +50,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		return err
 	}
 	for _, chunkPath := range chunkPaths {
-		err := chunks.new(f.InputPath, chunkPath, f.Allocate.EmptyKey, k)
+		err := chunks.new(f.InputPath, chunkPath, f.Allocate.EmptyKey, k, circQueueSize)
 		if err != nil {
 			return err
 		}
@@ -71,7 +72,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 			f.mu.Collect()
 		}
 		if chunks.len() == 0 || len(output) == k {
-			err = WriteBuffer(outputBuffer, output)
+			err = chunks.WriteBuffer(outputBuffer, output)
 			if err != nil {
 				return err
 			}
@@ -82,11 +83,11 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		}
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
-		minChunk, minValue, minIdx, err := chunks.min()
+		minChunk, minElem, err := chunks.min()
 		if err != nil {
 			return err
 		}
-		output = append(output, minValue)
+		output = append(output, minElem)
 		// remove the first element from the chunk we pulled the smallest value
 		minChunk.buffer = minChunk.buffer[1:]
 		isEmpty := false
@@ -98,7 +99,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 			// if after pulling data the chunk buffer is still empty then we can remove it
 			if len(minChunk.buffer) == 0 {
 				isEmpty = true
-				toShrink = append(toShrink, minIdx)
+				toShrink = append(toShrink, 0)
 				err = chunks.shrink(toShrink)
 				if err != nil {
 					return err
@@ -120,14 +121,4 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		f.mu.PrintMemUsage()
 	}
 	return chunks.close()
-}
-
-func WriteBuffer(buffer *bufio.Writer, rows [][]byte) error {
-	for _, row := range rows {
-		_, err := buffer.Write(row)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

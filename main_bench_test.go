@@ -29,7 +29,7 @@ func BenchmarkMergeSort(b *testing.B) {
 	assert.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = fI.MergeSort(chunkPaths, bufferSize)
+		err = fI.MergeSort(chunkPaths, bufferSize, bufferSize)
 		_ = err
 	}
 	f.Close()
