@@ -46,7 +46,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	mu := sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	batchChan := batchingchannels.NewBatchingChannel(context.Background(), f.Allocate, maxWorkers, dumpSize)
+	batchChan := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
 	go func() {
 		defer wg.Done()
 		for scanner.Scan() {
