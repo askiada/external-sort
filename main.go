@@ -53,7 +53,7 @@ func main() {
 	}
 	// perform a merge sort on all the chunks files.
 	// we sort using a buffer so we don't have to load the entire chunks when merging
-	err = fI.MergeSort(chunkPaths, 1)
+	err = fI.MergeSort(chunkPaths, 1000)
 	if err != nil {
 		panic(err)
 	}
