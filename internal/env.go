@@ -14,6 +14,7 @@ const (
 	ChunkSizeName        = "chunk_size"
 	MaxWorkersName       = "max_workers"
 	OutputBufferSizeName = "output_buffer_size"
+	MmapSizeName         = "mmap_size"
 )
 
 // Environment variables.
@@ -24,6 +25,7 @@ var (
 	ChunkSize        int
 	MaxWorkers       int64
 	OutputBufferSize int
+	MmapSize         int
 )
 
 func init() {
@@ -34,4 +36,5 @@ func init() {
 	viper.SetDefault(ChunkSizeName, 0)
 	viper.SetDefault(MaxWorkersName, 0)
 	viper.SetDefault(OutputBufferSizeName, 0)
+	viper.SetDefault(MmapSizeName, 0)
 }
