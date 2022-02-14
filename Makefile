@@ -5,6 +5,9 @@ help: ## Show this
 tag=v1.0.0
 docker_image=askiada/external-sort
 
+include ./env.list
+export $(shell sed 's/=.*//' ./env.list)
+
 
 .PHONY: test
 test:

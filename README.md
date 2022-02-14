@@ -42,6 +42,8 @@ make test
 
 ## Show some stuff
 
+Set the correct values in env.list file
+
 ```sh
 make run
 ```

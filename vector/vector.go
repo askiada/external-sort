@@ -36,7 +36,7 @@ type Vector interface {
 }
 
 func Dump(v Vector, filename string) error {
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return errors.Errorf("failed creating file: %s", err)
 	}

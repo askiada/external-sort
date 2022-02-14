@@ -14,10 +14,6 @@ func AllocateInt(line string) (Key, error) {
 	return &Int{num}, nil
 }
 
-func (k *Int) Get() interface{} {
-	return k.value
-}
-
 func (k *Int) Less(other Key) bool {
 	return k.value < other.(*Int).value
 }
