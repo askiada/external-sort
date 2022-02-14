@@ -2,95 +2,87 @@ package file
 
 import (
 	"bufio"
+	"context"
+	"sync"
 
 	"io"
 	"path"
 	"strconv"
 
+	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
 
 	"github.com/pkg/errors"
 )
 
 type Info struct {
-	Reader   io.Reader
-	Allocate func(int) vector.Vector
-}
-
-// Sort Perform a naive sort of a reader and put the results in ascending order in a Vector.
-func (f *Info) Sort(file io.Reader) error {
-	ans := f.Allocate(0)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		text := scanner.Text()
-		err := vector.Sort(ans, text)
-		if err != nil {
-			return err
-		}
-	}
-	if scanner.Err() != nil {
-		return scanner.Err()
-	}
-	return nil
+	mu            *MemUsage
+	Reader        io.Reader
+	Allocate      *vector.Allocate
+	OutputPath    string
+	totalRows     int
+	PrintMemUsage bool
 }
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
 // Store all the chunks in a folder an returns all the paths.
-func (f *Info) CreateSortedChunks(chunkFolder string, dumpSize int) ([]string, error) {
+func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpSize int, maxWorkers int64) ([]string, error) {
 	fn := "scan and sort and dump"
 	if dumpSize <= 0 {
 		return nil, errors.Wrap(errors.New("dump size must be greater than 0"), fn)
 	}
 
-	err := clearFolder(chunkFolder)
+	if f.PrintMemUsage && f.mu == nil {
+		f.mu = &MemUsage{}
+	}
+
+	err := clearChunkFolder(chunkFolder)
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
 	}
 	row := 0
-	chunkIdx := 0
 	chunkPaths := []string{}
 	scanner := bufio.NewScanner(f.Reader)
-	var ans vector.Vector
-	for scanner.Scan() {
-		if row%dumpSize == 0 {
-			if row != 0 {
-				chunkPath, err := dumpChunk(ans, chunkFolder, chunkIdx)
-				if err != nil {
-					return nil, errors.Wrap(err, fn)
-				}
-				chunkPaths = append(chunkPaths, chunkPath)
-				chunkIdx++
+	mu := sync.Mutex{}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	batchChan := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	go func() {
+		defer wg.Done()
+		for scanner.Scan() {
+			if f.PrintMemUsage {
+				f.mu.Collect()
 			}
-			ans = f.Allocate(dumpSize)
+			text := scanner.Text()
+			batchChan.In() <- text
+			row++
 		}
-		text := scanner.Text()
-		err := vector.Sort(ans, text)
-		if err != nil {
-			return nil, errors.Wrap(err, fn)
-		}
-		row++
-	}
-	if scanner.Err() != nil {
-		return nil, errors.Wrap(scanner.Err(), fn)
-	}
-	if ans == nil {
-		return chunkPaths, nil
-	}
+		batchChan.Close()
+	}()
 
-	chunkPath, err := dumpChunk(ans, chunkFolder, chunkIdx)
+	chunkIdx := 0
+	err = batchChan.ProcessOut(func(v vector.Vector) error {
+		mu.Lock()
+		chunkIdx++
+		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+		mu.Unlock()
+		v.Sort()
+		err := vector.Dump(v, chunkPath)
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		chunkPaths = append(chunkPaths, chunkPath)
+		mu.Unlock()
+		return nil
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
 	}
-	chunkPaths = append(chunkPaths, chunkPath)
-	return chunkPaths, nil
-}
-
-func dumpChunk(ans vector.Vector, folder string, chunkIdx int) (string, error) {
-	fn := "dump chunk"
-	chunkPath := path.Join(folder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-	err := ans.Dump(chunkPath)
-	if err != nil {
-		return "", errors.Wrap(err, fn)
+	wg.Wait()
+	if scanner.Err() != nil {
+		return nil, errors.Wrap(scanner.Err(), fn)
 	}
-	return chunkPath, nil
+	f.totalRows = row
+	return chunkPaths, nil
 }

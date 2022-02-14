@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -8,26 +9,27 @@ import (
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkMergeSort(b *testing.B) {
 	filename := "test.tsv"
-	chunkSize := 100000
+	chunkSize := 10000
 	bufferSize := 5000
 	f, err := os.Open(filename)
 	assert.NoError(b, err)
 
 	fI := &file.Info{
-		Reader:   f,
-		Allocate: vector.AllocateIntVector,
+		Reader:     f,
+		Allocate:   vector.DefaultVector(key.AllocateInt),
+		OutputPath: "testdata/chunks/output.tsv",
 	}
-	chunkPaths, err := fI.CreateSortedChunks("testdata/chunks", chunkSize)
+	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)
 	assert.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		got, err := fI.MergeSort(chunkPaths, bufferSize)
-		_ = got
+		err = fI.MergeSort(chunkPaths, bufferSize)
 		_ = err
 	}
 	f.Close()

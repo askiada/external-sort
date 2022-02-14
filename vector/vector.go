@@ -1,34 +1,53 @@
 package vector
 
-import "sort"
+import (
+	"bufio"
+	"os"
+
+	"github.com/askiada/external-sort/vector/key"
+	"github.com/pkg/errors"
+)
+
+type Allocate struct {
+	Vector func(int, func(line string) (key.Key, error)) Vector
+	Key    func(line string) (key.Key, error)
+}
+
+func DefaultVector(allocateKey func(line string) (key.Key, error)) *Allocate {
+	return &Allocate{
+		Vector: AllocateSlice,
+		Key:    allocateKey,
+	}
+}
 
 type Vector interface {
 	// Get Access i-th element
-	Get(i int) interface{}
+	Get(i int) *Element
 	// PushBack Add item at the end
-	PushBack(value interface{}) error
-	// Less Returns wether v1 is smaller than v2
-	Less(v1, v2 interface{}) bool
-	// Dump Create a file and store the underluing data
-	Dump(filename string) error
+	PushBack(line string) error
 	// FrontShift Remove the first element
 	FrontShift()
-	// End Length of the Vector
-	End() int
-	// insert Insert elements at index i
-	insert(i int, value interface{}) error
-	// convertFromString Convert the line from the file to the expected underlying data
-	convertFromString(value string) (interface{}, error)
+	// Len Length of the Vector
+	Len() int
+	// Reset Clear the content in the vector
+	Reset()
+	// Sort sort the vector in ascending order
+	Sort()
 }
 
-// Sort Perform a binary search to find where to put a value in a vector. Ascending order.
-func Sort(ans Vector, num string) error {
-	val, err := ans.convertFromString(num)
+func Dump(v Vector, filename string) error {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		return err
+		return errors.Errorf("failed creating file: %s", err)
 	}
-	pos := sort.Search(ans.End(), func(i int) bool {
-		return !ans.Less(ans.Get(i), val)
-	})
-	return ans.insert(pos, val)
+	datawriter := bufio.NewWriter(file)
+	for i := 0; i < v.Len(); i++ {
+		_, err = datawriter.WriteString(v.Get(i).Line + "\n")
+		if err != nil {
+			return errors.Errorf("failed writing file: %s", err)
+		}
+	}
+	datawriter.Flush()
+	file.Close()
+	return nil
 }
