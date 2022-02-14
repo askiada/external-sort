@@ -47,3 +47,13 @@ make run
 ```
 
 Print on stdout how we ordered 10 integers. The original file can be find `data/10elems.tsv`
+
+## Docker setup
+
+You can set all the values in the file `env.list`
+
+```sh
+make build_docker
+```
+
+docker run --rm -it -v $(pwd):/mnt/data --env-file env.list askiada/external-sort:v1.0.0
