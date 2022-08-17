@@ -1,12 +1,12 @@
 package file
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/writer"
 	"github.com/cheggaaa/pb/v3"
 )
 
@@ -52,16 +52,12 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 			return err
 		}
 	}
-
-	outputFile, err := os.Create(f.OutputPath)
+	w, err := os.Create(f.OutputFile)
 	if err != nil {
 		return err
 	}
-	// remember to close the file
-	defer outputFile.Close()
-
-	outputBuffer := bufio.NewWriter(outputFile)
-
+	f.outputWriter = f.Allocate.FnWriter(w)
+	defer f.outputWriter.Close()
 	bar := pb.StartNew(f.totalRows)
 	chunks.resetOrder()
 	for {
@@ -69,7 +65,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 			f.mu.Collect()
 		}
 		if chunks.len() == 0 || output.Len() == k {
-			err = WriteBuffer(outputBuffer, output)
+			err = WriteBuffer(f.outputWriter, output)
 			if err != nil {
 				return err
 			}
@@ -80,7 +76,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
 		minChunk, minValue, minIdx := chunks.min()
-		err = output.PushBack(minValue.Line)
+		err = output.PushBack(minValue.Row)
 		if err != nil {
 			return err
 		}
@@ -108,10 +104,6 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		}
 		bar.Increment()
 	}
-	err = outputBuffer.Flush()
-	if err != nil {
-		return err
-	}
 	bar.Finish()
 	if f.PrintMemUsage {
 		f.mu.PrintMemUsage()
@@ -119,9 +111,9 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 	return chunks.close()
 }
 
-func WriteBuffer(buffer *bufio.Writer, rows vector.Vector) error {
+func WriteBuffer(w writer.Writer, rows vector.Vector) error {
 	for i := 0; i < rows.Len(); i++ {
-		_, err := buffer.WriteString(rows.Get(i).Line + "\n")
+		err := w.Write(rows.Get(i).Row)
 		if err != nil {
 			return err
 		}

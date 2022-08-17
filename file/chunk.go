@@ -1,10 +1,10 @@
 package file
 
 import (
-	"bufio"
 	"os"
 	"sort"
 
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 
 	"github.com/pkg/errors"
@@ -13,7 +13,7 @@ import (
 // chunkInfo Describe a chunk.
 type chunkInfo struct {
 	file     *os.File
-	scanner  *bufio.Scanner
+	reader   reader.Reader
 	buffer   vector.Vector
 	filename string
 }
@@ -22,13 +22,16 @@ type chunkInfo struct {
 // It stops if there is no elements left to add.
 func (c *chunkInfo) pullSubset(size int) (err error) {
 	i := 0
-	for i < size && c.scanner.Scan() {
-		text := c.scanner.Text()
-		c.buffer.PushBack(text)
+	for i < size && c.reader.Next() {
+		row, err := c.reader.Read()
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
+		c.buffer.PushBack(row)
 		i++
 	}
-	if c.scanner.Err() != nil {
-		return c.scanner.Err()
+	if c.reader.Err() != nil {
+		return c.reader.Err()
 	}
 	return nil
 }
@@ -44,11 +47,11 @@ func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int) erro
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(f)
+	reader := allocate.FnReader(f)
 	elem := &chunkInfo{
 		filename: chunkPath,
 		file:     f,
-		scanner:  scanner,
+		reader:   reader,
 		buffer:   allocate.Vector(size, allocate.Key),
 	}
 	err = elem.pullSubset(size)

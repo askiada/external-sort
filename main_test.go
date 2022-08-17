@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,8 +12,10 @@ import (
 	"testing"
 
 	"github.com/askiada/external-sort/file"
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
+	"github.com/askiada/external-sort/writer"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,11 +24,10 @@ func prepareChunks(ctx context.Context, t *testing.T, allocate *vector.Allocate,
 	t.Helper()
 	f, err := os.Open(filename)
 	assert.NoError(t, err)
-
 	fI := &file.Info{
-		Reader:     f,
-		Allocate:   allocate,
-		OutputPath: outputFilename,
+		InputReader: f,
+		Allocate:    allocate,
+		OutputFile:  "testdata/chunks/output.tsv",
 	}
 	chunkPaths, err := fI.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
 	assert.NoError(t, err)
@@ -65,7 +67,7 @@ func TestBasics(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := vector.DefaultVector(key.AllocateInt)
+
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -77,8 +79,9 @@ func TestBasics(t *testing.T) {
 				bufferSize := bufferSize
 				t.Run(name+"_"+strconv.Itoa(chunkSize)+"_"+strconv.Itoa(bufferSize), func(t *testing.T) {
 					ctx := context.Background()
+
+					allocate := vector.DefaultVector(key.AllocateInt, reader.NewStdScanner, writer.NewStdWriter)
 					fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, chunkSize)
-					fI.OutputPath = outputFilename
 					err := fI.MergeSort(chunkPaths, bufferSize)
 					assert.NoError(t, err)
 					outputFile, err := os.Open(outputFilename)
@@ -112,7 +115,7 @@ func Test100Elems(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := vector.DefaultVector(key.AllocateInt)
+
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -120,6 +123,7 @@ func Test100Elems(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
+			allocate := vector.DefaultVector(key.AllocateInt, reader.NewStdScanner, writer.NewStdWriter)
 			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)
@@ -161,9 +165,7 @@ func TestTsvKey(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
-	allocate := vector.DefaultVector(func(line string) (key.Key, error) {
-		return key.AllocateTsv(line, 1)
-	})
+
 	for name, tc := range tcs {
 		filename := tc.filename
 		outputFilename := tc.outputFilename
@@ -171,6 +173,10 @@ func TestTsvKey(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
+
+			allocate := vector.DefaultVector(func(row interface{}) (key.Key, error) {
+				return key.AllocateTsv(row, 1)
+			}, func(r io.Reader) reader.Reader { return reader.NewSeparatedValues(r, '\t') }, func(w io.Writer) writer.Writer { return writer.NewSeparatedValues(w, '\t') })
 			fI, chunkPaths := prepareChunks(ctx, t, allocate, filename, outputFilename, 21)
 			err := fI.MergeSort(chunkPaths, 10)
 			assert.NoError(t, err)

@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/internal"
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
+	"github.com/askiada/external-sort/writer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -28,28 +32,38 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
 	rootCmd.PersistentFlags().Int64VarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt64(internal.MaxWorkersName), "max worker.")
 	rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
+	rootCmd.PersistentFlags().StringSliceVarP(&internal.TsvFields, internal.TsvFieldsName, "t", viper.GetStringSlice(internal.TsvFieldsName), "")
 
 	fmt.Println("Input file", internal.InputFile)
 	fmt.Println("Output file", internal.OutputFile)
-	fmt.Println("Chunk foler", internal.ChunkFolder)
+	fmt.Println("Chunk folder", internal.ChunkFolder)
+	fmt.Println("TSV Fields", internal.TsvFields)
+
 	cobra.CheckErr(rootCmd.Execute())
 }
 
 func rootRun(cmd *cobra.Command, args []string) error {
 	start := time.Now()
-	inputPath := internal.InputFile
 	// open a file
-	f, err := os.Open(inputPath)
+	inputReader, err := os.Open(internal.InputFile)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer inputReader.Close()
+	tsvFields := []int{}
+	for _, field := range internal.TsvFields {
+		i, err := strconv.Atoi(field)
+		if err != nil {
+			return err
+		}
+		tsvFields = append(tsvFields, i)
+	}
 	fI := &file.Info{
-		Reader: f,
-		Allocate: vector.DefaultVector(func(line string) (key.Key, error) {
-			return key.AllocateTsv(line, 0)
-		}),
-		OutputPath:    internal.OutputFile,
+		InputReader: inputReader,
+		OutputFile:  internal.OutputFile,
+		Allocate: vector.DefaultVector(func(row interface{}) (key.Key, error) {
+			return key.AllocateTsv(row, tsvFields...)
+		}, func(r io.Reader) reader.Reader { return reader.NewSeparatedValues(r, '\t') }, func(w io.Writer) writer.Writer { return writer.NewSeparatedValues(w, '\t') }),
 		PrintMemUsage: false,
 	}
 

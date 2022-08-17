@@ -2,28 +2,30 @@ package main_test
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
 
 	"github.com/askiada/external-sort/file"
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
+	"github.com/askiada/external-sort/writer"
 	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkMergeSort(b *testing.B) {
 	filename := "test.tsv"
-	chunkSize := 10000
-	bufferSize := 5000
 	f, err := os.Open(filename)
 	assert.NoError(b, err)
-
+	chunkSize := 10000
+	bufferSize := 5000
 	fI := &file.Info{
-		Reader:     f,
-		Allocate:   vector.DefaultVector(key.AllocateInt),
-		OutputPath: "testdata/chunks/output.tsv",
+		InputReader: f,
+		Allocate:    vector.DefaultVector(key.AllocateInt, reader.NewStdScanner, func(w io.Writer) writer.Writer { return writer.NewStdWriter(w) }),
+		OutputFile:  "testdata/chunks/output.tsv",
 	}
 	chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)
 	assert.NoError(b, err)
@@ -32,7 +34,6 @@ func BenchmarkMergeSort(b *testing.B) {
 		err = fI.MergeSort(chunkPaths, bufferSize)
 		_ = err
 	}
-	f.Close()
 	dir, err := ioutil.ReadDir("testdata/chunks")
 	assert.NoError(b, err)
 	for _, d := range dir {

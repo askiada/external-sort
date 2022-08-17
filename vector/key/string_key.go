@@ -1,5 +1,7 @@
 package key
 
+import "strings"
+
 type String struct {
 	value string
 }
@@ -10,4 +12,16 @@ func AllocateString(line string) (Key, error) {
 
 func (k *String) Less(other Key) bool {
 	return k.value < other.(*String).value
+}
+
+type UpperString struct {
+	value string
+}
+
+func AllocateUpperString(line string) (Key, error) {
+	return &UpperString{strings.TrimSpace(strings.ToUpper(line))}, nil
+}
+
+func (k *UpperString) Less(other Key) bool {
+	return k.value < other.(*UpperString).value
 }

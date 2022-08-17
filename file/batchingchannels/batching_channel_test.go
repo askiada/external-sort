@@ -10,6 +10,7 @@ import (
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,7 +18,11 @@ type Int struct {
 	value int
 }
 
-func AllocateInt(line string) (key.Key, error) {
+func AllocateInt(row interface{}) (key.Key, error) {
+	line, ok := row.(string)
+	if !ok {
+		return nil, errors.Errorf("can't convert interface{} to string: %+v", row)
+	}
 	num, err := strconv.Atoi(line)
 	if err != nil {
 		return nil, err
@@ -86,7 +91,7 @@ func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 }
 
 func TestBatchingChannel(t *testing.T) {
-	allocate := vector.DefaultVector(AllocateInt)
+	allocate := vector.DefaultVector(AllocateInt, nil, nil)
 	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 50)
 	testBatches(t, ch)
 
@@ -98,7 +103,7 @@ func TestBatchingChannel(t *testing.T) {
 }
 
 func TestBatchingChannelCap(t *testing.T) {
-	allocate := vector.DefaultVector(AllocateInt)
+	allocate := vector.DefaultVector(AllocateInt, nil, nil)
 	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 5)
 	if ch.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")

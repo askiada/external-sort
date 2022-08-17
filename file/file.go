@@ -1,25 +1,26 @@
 package file
 
 import (
-	"bufio"
 	"context"
+	"io"
 	"sync"
 
-	"io"
 	"path"
 	"strconv"
 
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/writer"
 
 	"github.com/pkg/errors"
 )
 
 type Info struct {
 	mu            *MemUsage
-	Reader        io.Reader
 	Allocate      *vector.Allocate
-	OutputPath    string
+	InputReader   io.Reader
+	OutputFile    string
+	outputWriter  writer.Writer
 	totalRows     int
 	PrintMemUsage bool
 }
@@ -40,25 +41,33 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
 	}
+
+	inputReader := f.Allocate.FnReader(f.InputReader)
+
 	row := 0
 	chunkPaths := []string{}
-	scanner := bufio.NewScanner(f.Reader)
+
 	mu := sync.Mutex{}
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+
 	batchChan := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
-	go func() {
-		defer wg.Done()
-		for scanner.Scan() {
+	batchChan.G.Go(func() error {
+		for inputReader.Next() {
 			if f.PrintMemUsage {
 				f.mu.Collect()
 			}
-			text := scanner.Text()
-			batchChan.In() <- text
+			elem, err := inputReader.Read()
+			if err != nil {
+				return errors.Wrap(err, fn)
+			}
+			batchChan.In() <- elem
 			row++
 		}
 		batchChan.Close()
-	}()
+		if inputReader.Err() != nil {
+			return errors.Wrap(inputReader.Err(), fn)
+		}
+		return nil
+	})
 
 	chunkIdx := 0
 	err = batchChan.ProcessOut(func(v vector.Vector) error {
@@ -67,7 +76,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
 		mu.Unlock()
 		v.Sort()
-		err := vector.Dump(v, chunkPath)
+		err := f.Allocate.Dump(v, chunkPath)
 		if err != nil {
 			return err
 		}
@@ -78,10 +87,6 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
-	}
-	wg.Wait()
-	if scanner.Err() != nil {
-		return nil, errors.Wrap(scanner.Err(), fn)
 	}
 	f.totalRows = row
 	return chunkPaths, nil

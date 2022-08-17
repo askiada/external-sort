@@ -12,11 +12,11 @@ import (
 // on Out(), it batches together the entire internal buffer each time. Trying to construct an unbuffered batching channel
 // will panic, that configuration is not supported (and provides no benefit over an unbuffered NativeChannel).
 type BatchingChannel struct {
-	input     chan string
+	input     chan interface{}
 	output    chan vector.Vector
 	buffer    vector.Vector
 	allocate  *vector.Allocate
-	g         *errgroup.Group
+	G         *errgroup.Group
 	sem       *semaphore.Weighted
 	dCtx      context.Context
 	size      int
@@ -32,12 +32,12 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 	}
 	g, dCtx := errgroup.WithContext(ctx)
 	ch := &BatchingChannel{
-		input:     make(chan string),
+		input:     make(chan interface{}),
 		output:    make(chan vector.Vector),
 		size:      size,
 		allocate:  allocate,
 		maxWorker: maxWorker,
-		g:         g,
+		G:         g,
 		sem:       semaphore.NewWeighted(maxWorker),
 		dCtx:      dCtx,
 	}
@@ -45,7 +45,7 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 	return ch
 }
 
-func (ch *BatchingChannel) In() chan<- string {
+func (ch *BatchingChannel) In() chan<- interface{} {
 	return ch.input
 }
 
@@ -62,12 +62,12 @@ func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 			return err
 		}
 		val := val
-		ch.g.Go(func() error {
+		ch.G.Go(func() error {
 			defer ch.sem.Release(1)
 			return f(val)
 		})
 	}
-	err := ch.g.Wait()
+	err := ch.G.Wait()
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (ch *BatchingChannel) batchingBuffer() {
 		if open {
 			err := ch.buffer.PushBack(elem)
 			if err != nil {
-				ch.g.Go(func() error {
+				ch.G.Go(func() error {
 					return err
 				})
 			}
