@@ -42,12 +42,15 @@ type chunks struct {
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int) error {
+func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, withHeader bool) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
 	}
-	reader := allocate.FnReader(f)
+	reader, err := allocate.FnReader(f)
+	if err != nil {
+		return err
+	}
 	elem := &chunkInfo{
 		filename: chunkPath,
 		file:     f,

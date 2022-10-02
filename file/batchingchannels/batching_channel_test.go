@@ -37,6 +37,10 @@ func (k *Int) Get() int {
 func (k *Int) Less(other key.Key) bool {
 	return k.value < other.(*Int).value
 }
+func (k *Int) Equal(other key.Key) bool {
+	return k.value == other.(*Int).value
+}
+
 func testBatches(t *testing.T, ch *batchingchannels.BatchingChannel) {
 	maxI := 10000
 	expectedSum := (maxI - 1) * maxI / 2

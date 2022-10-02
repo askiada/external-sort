@@ -41,6 +41,11 @@ func (v *SliceVec) PushBack(row interface{}) error {
 	return nil
 }
 
+func (v *SliceVec) PushFrontNoKey(row interface{}) error {
+	v.s = append([]*Element{{Row: row}}, v.s...)
+	return nil
+}
+
 func (v *SliceVec) Sort() {
 	sort.Slice(v.s, func(i, j int) bool {
 		return Less(v.Get(i), v.Get(j))

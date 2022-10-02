@@ -89,9 +89,9 @@ func (ch *BatchingChannel) Close() {
 func (ch *BatchingChannel) batchingBuffer() {
 	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 	for {
-		elem, open := <-ch.input
+		row, open := <-ch.input
 		if open {
-			err := ch.buffer.PushBack(elem)
+			err := ch.buffer.PushBack(row)
 			if err != nil {
 				ch.G.Go(func() error {
 					return err

@@ -11,18 +11,23 @@ import (
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/writer"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
 )
+
+var logger = logrus.StandardLogger()
 
 type Info struct {
 	mu            *MemUsage
 	Allocate      *vector.Allocate
 	InputReader   io.Reader
-	OutputFile    string
+	OutputFile    io.Writer
 	outputWriter  writer.Writer
 	totalRows     int
 	PrintMemUsage bool
+	WithHeader    bool
+	headers       interface{}
 }
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
@@ -42,9 +47,11 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		return nil, errors.Wrap(err, fn)
 	}
 
-	inputReader := f.Allocate.FnReader(f.InputReader)
-
-	row := 0
+	inputReader, err := f.Allocate.FnReader(f.InputReader)
+	if err != nil {
+		return nil, errors.Wrap(err, fn)
+	}
+	count_rows := 0
 	chunkPaths := []string{}
 
 	mu := sync.Mutex{}
@@ -55,12 +62,16 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			if f.PrintMemUsage {
 				f.mu.Collect()
 			}
-			elem, err := inputReader.Read()
+			row, err := inputReader.Read()
 			if err != nil {
 				return errors.Wrap(err, fn)
 			}
-			batchChan.In() <- elem
-			row++
+			if f.WithHeader && f.headers == nil {
+				f.headers = row
+			} else {
+				batchChan.In() <- row
+			}
+			count_rows++
 		}
 		batchChan.Close()
 		if inputReader.Err() != nil {
@@ -74,8 +85,15 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		mu.Lock()
 		chunkIdx++
 		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
+		logger.Infoln("Created chunk", chunkPath)
 		mu.Unlock()
 		v.Sort()
+		if f.WithHeader {
+			err = v.PushFrontNoKey(f.headers)
+			if err != nil {
+				return err
+			}
+		}
 		err := f.Allocate.Dump(v, chunkPath)
 		if err != nil {
 			return err
@@ -88,6 +106,6 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if err != nil {
 		return nil, errors.Wrap(err, fn)
 	}
-	f.totalRows = row
+	f.totalRows = count_rows
 	return chunkPaths, nil
 }

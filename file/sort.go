@@ -2,7 +2,6 @@ package file
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 
 	"github.com/askiada/external-sort/vector"
@@ -39,24 +38,30 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
+func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err error) {
+	var oldElem *vector.Element
 	output := f.Allocate.Vector(k, f.Allocate.Key)
 	if f.PrintMemUsage && f.mu == nil {
 		f.mu = &MemUsage{}
 	}
-	// create a chunk per file path
-	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
-	for _, chunkPath := range chunkPaths {
-		err := chunks.new(chunkPath, f.Allocate, k)
+	if f.WithHeader {
+		err = output.PushFrontNoKey(f.headers)
 		if err != nil {
 			return err
 		}
 	}
-	w, err := os.Create(f.OutputFile)
+	// create a chunk per file path
+	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
+	for _, chunkPath := range chunkPaths {
+		err := chunks.new(chunkPath, f.Allocate, k, f.WithHeader)
+		if err != nil {
+			return err
+		}
+	}
+	f.outputWriter, err = f.Allocate.FnWriter(f.OutputFile)
 	if err != nil {
 		return err
 	}
-	f.outputWriter = f.Allocate.FnWriter(w)
 	defer f.outputWriter.Close()
 	bar := pb.StartNew(f.totalRows)
 	chunks.resetOrder()
@@ -76,10 +81,14 @@ func (f *Info) MergeSort(chunkPaths []string, k int) (err error) {
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
 		minChunk, minValue, minIdx := chunks.min()
-		err = output.PushBack(minValue.Row)
-		if err != nil {
-			return err
+		if (!dropDuplicates || oldElem == nil) || (dropDuplicates && !minValue.Key.Equal(oldElem.Key)) {
+			err = output.PushBack(minValue.Row)
+			if err != nil {
+				return err
+			}
+			oldElem = minValue
 		}
+
 		// remove the first element from the chunk we pulled the smallest value
 		minChunk.buffer.FrontShift()
 		isEmpty := false

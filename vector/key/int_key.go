@@ -25,3 +25,7 @@ func AllocateInt(row interface{}) (Key, error) {
 func (k *Int) Less(other Key) bool {
 	return k.value < other.(*Int).value
 }
+
+func (k *Int) Equal(other Key) bool {
+	return k.value == other.(*Int).value
+}
