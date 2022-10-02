@@ -19,6 +19,8 @@ const (
 
 	S3RegionName           = "s3_region"
 	S3RetryMaxAttemptsName = "s3_retry_max_attempts"
+
+	IsGzipName = "is_gzip"
 )
 
 // Environment variables.
@@ -34,6 +36,7 @@ var (
 
 	S3Region           string
 	S3RetryMaxAttempts int
+	IsGzip             bool
 )
 
 func init() {
@@ -49,4 +52,5 @@ func init() {
 
 	viper.SetDefault(S3RegionName, "eu-west-1")
 	viper.SetDefault(S3RetryMaxAttemptsName, 10)
+	viper.SetDefault(IsGzipName, false)
 }

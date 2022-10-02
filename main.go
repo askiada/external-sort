@@ -21,34 +21,60 @@ import (
 
 var logger = logrus.StandardLogger()
 
-func main() {
-	rootCmd := &cobra.Command{
-		Use:   "external-sort",
-		Short: "Perform an external sorting on an input file",
-		RunE:  rootRun,
+type command struct {
+	rootCmd    *cobra.Command
+	sortCmd    *cobra.Command
+	shuffleCmd *cobra.Command
+}
+
+func newCommand() *command {
+	root := &command{
+		rootCmd: &cobra.Command{
+			Use:   "external",
+			Short: "Perform an external task on an input file",
+		},
+		sortCmd: &cobra.Command{
+			Use:   "sort",
+			Short: "Perform an external sorting on an input file",
+			RunE:  sortRun,
+		},
+		shuffleCmd: &cobra.Command{
+			Use:   "shuffle",
+			Short: "Perform an external sorting on an input file",
+			RunE:  shuffleRun,
+		},
 	}
-	rootCmd.PersistentFlags().BoolVarP(&internal.WithHeader, internal.WithHeaderName, "i", viper.GetBool(internal.WithHeaderName), "Input file has headers.")
-	rootCmd.PersistentFlags().StringSliceVarP(&internal.InputFiles, internal.InputFileNames, "i", viper.GetStringSlice(internal.InputFileNames), "input file path.")
-	rootCmd.PersistentFlags().StringVarP(&internal.OutputFile, internal.OutputFileName, "o", viper.GetString(internal.OutputFileName), "output file path.")
-	rootCmd.PersistentFlags().StringVarP(&internal.ChunkFolder, internal.ChunkFolderName, "c", viper.GetString(internal.ChunkFolderName), "chunk folder.")
+	root.rootCmd.PersistentFlags().BoolVarP(&internal.WithHeader, internal.WithHeaderName, "e", viper.GetBool(internal.WithHeaderName), "Input file has headers.")
+	root.rootCmd.PersistentFlags().StringSliceVarP(&internal.InputFiles, internal.InputFileNames, "i", viper.GetStringSlice(internal.InputFileNames), "input file path.")
+	root.rootCmd.PersistentFlags().StringVarP(&internal.OutputFile, internal.OutputFileName, "o", viper.GetString(internal.OutputFileName), "output file path.")
+	root.rootCmd.PersistentFlags().StringVarP(&internal.ChunkFolder, internal.ChunkFolderName, "c", viper.GetString(internal.ChunkFolderName), "chunk folder.")
 
-	rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
-	rootCmd.PersistentFlags().Int64VarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt64(internal.MaxWorkersName), "max worker.")
-	rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
-	rootCmd.PersistentFlags().StringSliceVarP(&internal.TsvFields, internal.TsvFieldsName, "t", viper.GetStringSlice(internal.TsvFieldsName), "")
+	root.rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
+	root.rootCmd.PersistentFlags().Int64VarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt64(internal.MaxWorkersName), "max worker.")
+	root.rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
+	root.sortCmd.PersistentFlags().StringSliceVarP(&internal.TsvFields, internal.TsvFieldsName, "t", viper.GetStringSlice(internal.TsvFieldsName), "")
 
-	rootCmd.Flags().StringVar(&internal.S3Region, internal.S3RegionName, viper.GetString(internal.S3RegionName), "the bucket region")
-	rootCmd.Flags().IntVar(&internal.S3RetryMaxAttempts, internal.S3RetryMaxAttemptsName, viper.GetInt(internal.S3RetryMaxAttemptsName), "the number of retries per S3 request before failing")
+	root.rootCmd.Flags().StringVar(&internal.S3Region, internal.S3RegionName, viper.GetString(internal.S3RegionName), "the bucket region")
+	root.rootCmd.Flags().IntVar(&internal.S3RetryMaxAttempts, internal.S3RetryMaxAttemptsName, viper.GetInt(internal.S3RetryMaxAttemptsName), "the number of retries per S3 request before failing")
+
+	root.shuffleCmd.PersistentFlags().BoolVarP(&internal.IsGzip, internal.IsGzipName, "t", viper.GetBool(internal.IsGzipName), "")
 
 	logger.Infoln("Input files", internal.InputFiles)
 	logger.Infoln("With header", internal.WithHeader)
 	logger.Infoln("Output file", internal.OutputFile)
 	logger.Infoln("Chunk folder", internal.ChunkFolder)
 	logger.Infoln("TSV Fields", internal.TsvFields)
-	cobra.CheckErr(rootCmd.Execute())
+
+	root.rootCmd.AddCommand(root.sortCmd, root.shuffleCmd)
+	return root
 }
 
-func rootRun(cmd *cobra.Command, args []string) error {
+func main() {
+	root := newCommand()
+	cobra.CheckErr(root.rootCmd.Execute())
+}
+
+func sortRun(cmd *cobra.Command, args []string) error {
 	start := time.Now()
 	ctx := context.Background()
 	i := rw.NewInputOutput(ctx)
@@ -93,6 +119,42 @@ func rootRun(cmd *cobra.Command, args []string) error {
 		err = fI.MergeSort(chunkPaths, internal.OutputBufferSize, true)
 		if err != nil {
 			return errors.Wrap(err, "can't merge sort")
+		}
+		elapsed := time.Since(start)
+		logger.Infoln("It took", elapsed)
+		return nil
+	})
+	err = i.Err()
+	if err != nil {
+		return errors.Wrap(err, "can't finish")
+	}
+	return nil
+}
+
+func shuffleRun(cmd *cobra.Command, args []string) error {
+	start := time.Now()
+	ctx := context.Background()
+	i := rw.NewInputOutput(ctx)
+	err := i.SetInputReader(ctx, internal.InputFiles...)
+	if err != nil {
+		return err
+	}
+	err = i.SetOutputWriter(ctx, internal.OutputFile)
+	if err != nil {
+		return err
+	}
+
+	fI := &file.Info{
+		WithHeader:    internal.WithHeader,
+		InputReader:   i.Input,
+		OutputFile:    i.Output,
+		PrintMemUsage: false,
+	}
+	i.Do(func() error {
+		// create small files with maximum 30 rows in each
+		_, err := fI.Shuffle(context.Background(), internal.ChunkFolder, internal.ChunkSize, internal.MaxWorkers, internal.OutputBufferSize, time.Now().Unix(), internal.IsGzip)
+		if err != nil {
+			return errors.Wrap(err, "can't create shuflled chunks")
 		}
 		elapsed := time.Since(start)
 		logger.Infoln("It took", elapsed)

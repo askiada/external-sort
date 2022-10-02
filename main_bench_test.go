@@ -28,7 +28,7 @@ func BenchmarkMergeSort(b *testing.B) {
 	bufferSize := 5000
 	fI := &file.Info{
 		InputReader: i.Input,
-		Allocate:    vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r), nil }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil }),
+		Allocate:    vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil }),
 		OutputFile:  i.Output,
 	}
 	i.Do(func() (err error) {

@@ -2,7 +2,9 @@ package writer
 
 import (
 	"bufio"
+	"compress/gzip"
 	"io"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -31,6 +33,53 @@ func (w *StdWriter) Write(elem interface{}) error {
 }
 
 func (w *StdWriter) Close() error {
+	err := w.w.Flush()
+	if err != nil {
+		return errors.Wrap(err, "can't close writer")
+	}
+	return nil
+}
+
+type StdSliceWriter struct {
+	skipFirst bool
+	w         *bufio.Writer
+	gw        *gzip.Writer
+}
+
+func NewStdSliceWriter(w io.Writer, skipFirst, isGzip bool) Writer {
+	var newR *bufio.Writer
+	s := &StdSliceWriter{
+		skipFirst: skipFirst,
+	}
+	if isGzip {
+		s.gw = gzip.NewWriter(w)
+		newR = bufio.NewWriter(s.gw)
+	} else {
+		newR = bufio.NewWriter(w)
+	}
+	s.w = newR
+	return s
+}
+
+func (w *StdSliceWriter) Write(elem interface{}) error {
+	line, ok := elem.([]string)
+	if !ok {
+		return errors.Errorf("can't converte interface{} to string: %+v", elem)
+	}
+	if w.skipFirst {
+		line = line[1:]
+	}
+	_, err := w.w.WriteString(strings.Join(line, "##!!##") + "\n")
+	if err != nil {
+		return errors.Wrap(err, "can't write string")
+	}
+	return err
+}
+
+func (w *StdSliceWriter) Close() error {
+	if w.gw != nil {
+		defer w.gw.Close()
+	}
 	err := w.w.Flush()
 	if err != nil {
 		return errors.Wrap(err, "can't close writer")

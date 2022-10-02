@@ -17,9 +17,13 @@ test:
 test_race:
 	go test -race ./...
 
-.PHONY: run
-run: build
-	./bin/external-sort
+.PHONY: run_sort
+run_sort: build
+	./bin/external-sort sort
+
+.PHONY: run_shuffle
+run_shuffle: build
+	./bin/external-sort shuffle
 
 .PHONY: build
 build:
