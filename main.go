@@ -59,12 +59,6 @@ func newCommand() *command {
 
 	root.shuffleCmd.PersistentFlags().BoolVarP(&internal.IsGzip, internal.IsGzipName, "t", viper.GetBool(internal.IsGzipName), "")
 
-	logger.Infoln("Input files", internal.InputFiles)
-	logger.Infoln("With header", internal.WithHeader)
-	logger.Infoln("Output file", internal.OutputFile)
-	logger.Infoln("Chunk folder", internal.ChunkFolder)
-	logger.Infoln("TSV Fields", internal.TsvFields)
-
 	root.rootCmd.AddCommand(root.sortCmd, root.shuffleCmd)
 	return root
 }
@@ -75,6 +69,12 @@ func main() {
 }
 
 func sortRun(cmd *cobra.Command, args []string) error {
+	logger.Infoln("Input files", internal.InputFiles)
+	logger.Infoln("With header", internal.WithHeader)
+	logger.Infoln("Output file", internal.OutputFile)
+	logger.Infoln("Chunk folder", internal.ChunkFolder)
+	logger.Infoln("TSV Fields", internal.TsvFields)
+
 	start := time.Now()
 	ctx := context.Background()
 	i := rw.NewInputOutput(ctx)
@@ -132,6 +132,11 @@ func sortRun(cmd *cobra.Command, args []string) error {
 }
 
 func shuffleRun(cmd *cobra.Command, args []string) error {
+	logger.Infoln("Input files", internal.InputFiles)
+	logger.Infoln("With header", internal.WithHeader)
+	logger.Infoln("Output file", internal.OutputFile)
+	logger.Infoln("Chunk folder", internal.ChunkFolder)
+	logger.Infoln("GZip file", internal.IsGzip)
 	start := time.Now()
 	ctx := context.Background()
 	i := rw.NewInputOutput(ctx)

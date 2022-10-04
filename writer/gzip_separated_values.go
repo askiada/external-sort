@@ -9,9 +9,8 @@ import (
 )
 
 type GZipSeparatedValuesWriter struct {
-	w          *csv.Writer
-	gw         *gzip.Writer
-	withHeader bool
+	w  *csv.Writer
+	gw *gzip.Writer
 }
 
 func NewGZipSeparatedValues(w io.Writer, separator rune) (Writer, error) {

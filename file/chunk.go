@@ -51,6 +51,11 @@ func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, with
 	if err != nil {
 		return err
 	}
+
+	if withHeader {
+		reader.Next()
+	}
+
 	elem := &chunkInfo{
 		filename: chunkPath,
 		file:     f,
