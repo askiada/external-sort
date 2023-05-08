@@ -3,10 +3,12 @@ package file
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/writer"
 	"github.com/cheggaaa/pb/v3"
+	"github.com/pkg/errors"
 )
 
 type MemUsage struct {
@@ -28,10 +30,12 @@ func (mu *MemUsage) Collect() {
 	mu.NumGc = m.NumGC
 }
 
-func (mu *MemUsage) PrintMemUsage() {
-	fmt.Printf("Max Alloc = %v MiB", bToMb(mu.MaxAlloc))
-	fmt.Printf("\tMax Sys = %v MiB", bToMb(mu.MaxSys))
-	fmt.Printf("\tNumGC = %v\n", mu.NumGc)
+func (mu *MemUsage) String() string {
+	builder := strings.Builder{}
+	builder.WriteString(fmt.Sprintf("Max Alloc = %v MiB", bToMb(mu.MaxAlloc)))
+	builder.WriteString(fmt.Sprintf(" Max Sys = %v MiB", bToMb(mu.MaxSys)))
+	builder.WriteString(fmt.Sprintf(" NumGC = %v\n", mu.NumGc))
+	return builder.String()
 }
 
 func bToMb(b uint64) uint64 {
@@ -115,7 +119,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err e
 	}
 	bar.Finish()
 	if f.PrintMemUsage {
-		f.mu.PrintMemUsage()
+		logger.Debugln(f.mu.String())
 	}
 	return chunks.close()
 }
@@ -124,7 +128,7 @@ func WriteBuffer(w writer.Writer, rows vector.Vector) error {
 	for i := 0; i < rows.Len(); i++ {
 		err := w.Write(rows.Get(i).Row)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "can't write buffer")
 		}
 	}
 	rows.Reset()

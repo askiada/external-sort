@@ -36,12 +36,18 @@ func newCommand() *command {
 		sortCmd: &cobra.Command{
 			Use:   "sort",
 			Short: "Perform an external sorting on an input file",
-			RunE:  sortRun,
+			PreRun: func(cmd *cobra.Command, args []string) {
+				cmd.SetContext(context.WithValue(cmd.Parent().Context(), "cmd", "sort"))
+			},
+			RunE: sortRun,
 		},
 		shuffleCmd: &cobra.Command{
 			Use:   "shuffle",
-			Short: "Perform an external sorting on an input file",
-			RunE:  shuffleRun,
+			Short: "Perform an external shufflin on an input file",
+			PreRun: func(cmd *cobra.Command, args []string) {
+				cmd.SetContext(context.WithValue(cmd.Parent().Context(), "cmd", "shuffle"))
+			},
+			RunE: shuffleRun,
 		},
 	}
 	root.rootCmd.PersistentFlags().BoolVarP(&internal.WithHeader, internal.WithHeaderName, "e", viper.GetBool(internal.WithHeaderName), "Input file has headers.")
@@ -65,7 +71,8 @@ func newCommand() *command {
 
 func main() {
 	root := newCommand()
-	cobra.CheckErr(root.rootCmd.Execute())
+	ctx := context.Background()
+	cobra.CheckErr(root.rootCmd.ExecuteContext(ctx))
 }
 
 func sortRun(cmd *cobra.Command, args []string) error {
@@ -76,13 +83,12 @@ func sortRun(cmd *cobra.Command, args []string) error {
 	logger.Infoln("TSV Fields", internal.TsvFields)
 
 	start := time.Now()
-	ctx := context.Background()
-	i := rw.NewInputOutput(ctx)
-	err := i.SetInputReader(ctx, internal.InputFiles...)
+	i := rw.NewInputOutput(cmd.Context())
+	err := i.SetInputReader(cmd.Context(), internal.InputFiles...)
 	if err != nil {
 		return err
 	}
-	err = i.SetOutputWriter(ctx, internal.OutputFile)
+	err = i.SetOutputWriter(cmd.Context(), internal.OutputFile)
 	if err != nil {
 		return err
 	}

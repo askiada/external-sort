@@ -88,6 +88,7 @@ func (s *seqWriterAt) WriteAt(p []byte, _ int64) (n int, err error) {
 	if s.progressFunc != nil {
 		s.progressFunc(n)
 	}
+
 	return n, errors.Wrap(err, "can't write bytes at offset")
 }
 
@@ -116,5 +117,6 @@ func (s *S3) Download(ctx context.Context, writer io.Writer, filesinfo ...*S3Fil
 			return errors.Wrapf(err, "download failed for bucket %s and key %s", fileinfo.Bucket, fileinfo.Key)
 		}
 	}
+
 	return nil
 }

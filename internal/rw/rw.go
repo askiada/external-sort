@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/askiada/external-sort/bucket"
@@ -20,28 +21,28 @@ import (
 var logger = logrus.StandardLogger()
 
 type InputOutput struct {
-	s3Client   bucket.S3ClientAPI
-	Input      io.Reader
-	inputPipe  *io.PipeReader
-	Output     io.Writer
-	outputPipe *io.PipeWriter
-	g          *errgroup.Group
-	dCtx       context.Context
+	s3Client    bucket.S3ClientAPI
+	Input       io.Reader
+	inputPipe   *io.PipeReader
+	Output      io.Writer
+	outputPipe  *io.PipeWriter
+	g           *errgroup.Group
+	internalCtx context.Context //nolint //containedcontext
 }
 
 func NewInputOutput(ctx context.Context) *InputOutput {
 	g, dCtx := errgroup.WithContext(ctx)
 	return &InputOutput{
-		g:    g,
-		dCtx: dCtx,
+		g:           g,
+		internalCtx: dCtx,
 	}
 }
 
-func (i *InputOutput) s3Check() error {
+func (i *InputOutput) s3Check(ctx context.Context) error {
 	if i.s3Client != nil {
 		return nil
 	}
-	cfg, err := config.LoadDefaultConfig(context.Background(),
+	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(internal.S3Region),
 		config.WithRetryMaxAttempts(internal.S3RetryMaxAttempts),
 	)
@@ -54,7 +55,7 @@ func (i *InputOutput) s3Check() error {
 
 func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) (err error) {
 	if strings.HasPrefix(inputFiles[0], "s3") || strings.HasPrefix(inputFiles[0], "S3") {
-		err = i.s3Check()
+		err = i.s3Check(ctx)
 		if err != nil {
 			return errors.Wrap(err, "can't check s3")
 		}
@@ -82,7 +83,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		i.inputPipe = pr
 		i.g.Go(func() error {
 			defer pw.Close() //nolint:errcheck //no need to check this error
-			err := s3Api.Download(i.dCtx, pw, files...)
+			err := s3Api.Download(i.internalCtx, pw, files...)
 			if err != nil {
 				return errors.Wrap(err, "can't download files")
 			}
@@ -104,7 +105,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 
 func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (err error) {
 	if strings.HasPrefix(outputFile, "s3") || strings.HasPrefix(outputFile, "S3") {
-		err = i.s3Check()
+		err = i.s3Check(ctx)
 		if err != nil {
 			return errors.Wrap(err, "can't check s3")
 		}
@@ -125,14 +126,14 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		i.outputPipe = pw
 		i.g.Go(func() error {
 			defer pr.Close() //nolint:errcheck //no need to check this error
-			err := s3Api.Upload(i.dCtx, pr, u.Host, u.Path)
+			err := s3Api.Upload(i.internalCtx, pr, u.Host, u.Path)
 			if err != nil {
 				return errors.Wrapf(err, "can't upload file %s", outputFile)
 			}
 			return nil
 		})
 	} else {
-		i.Output, err = os.Create(outputFile)
+		i.Output, err = os.Create(filepath.Clean(outputFile))
 		if err != nil {
 			return errors.Wrapf(err, "can't create file %s", outputFile)
 		}

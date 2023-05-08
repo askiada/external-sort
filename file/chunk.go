@@ -2,6 +2,7 @@ package file
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/askiada/external-sort/reader"
@@ -47,28 +48,28 @@ type chunks struct {
 
 // new Create a new chunk and initialise it.
 func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, withHeader bool) error {
-	f, err := os.Open(chunkPath)
+	chunkFile, err := os.Open(filepath.Clean(chunkPath))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't open chunk file")
 	}
-	reader, err := allocate.FnReader(f)
+	rder, err := allocate.FnReader(chunkFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't read chunk file")
 	}
 
 	if withHeader {
-		reader.Next()
+		rder.Next()
 	}
 
 	elem := &chunkInfo{
 		filename: chunkPath,
-		file:     f,
-		reader:   reader,
+		file:     chunkFile,
+		reader:   rder,
 		buffer:   allocate.Vector(size, allocate.Key),
 	}
 	err = elem.pullSubset(size)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't pull chunk subset")
 	}
 	c.list = append(c.list, elem)
 	return nil
@@ -79,7 +80,7 @@ func (c *chunks) close() error {
 	for _, chunk := range c.list {
 		err := chunk.file.Close()
 		if err != nil {
-			return errors.Wrap(err, "close")
+			return errors.Wrapf(err, "can't close chunk file %s", chunk.filename)
 		}
 	}
 	return nil
@@ -92,11 +93,11 @@ func (c *chunks) shrink(toShrink []int) error {
 		shrinkIndex -= i
 		err := c.list[shrinkIndex].file.Close()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't close chunk file %s", c.list[shrinkIndex].filename)
 		}
 		err = os.Remove(c.list[shrinkIndex].filename)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't remove chunk file %s", c.list[shrinkIndex].filename)
 		}
 		// we want to preserve order
 		c.list = append(c.list[:shrinkIndex], c.list[shrinkIndex+1:]...)

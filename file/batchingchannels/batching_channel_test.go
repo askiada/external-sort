@@ -12,6 +12,7 @@ import (
 	"github.com/askiada/external-sort/vector/key"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type intKey struct {
@@ -27,6 +28,7 @@ func allocateInt(row interface{}) (key.Key, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &intKey{num}, nil
 }
 
@@ -84,6 +86,7 @@ func testBatches(t *testing.T, bChan *batchingchannels.BatchingChannel) {
 				got <- val
 			}
 			time.Sleep(3 * time.Millisecond)
+
 			return nil
 		})
 		if err != nil {
@@ -98,20 +101,24 @@ func testBatches(t *testing.T, bChan *batchingchannels.BatchingChannel) {
 
 func TestBatchingChannel(t *testing.T) {
 	allocate := vector.DefaultVector(allocateInt, nil, nil)
-	bChan := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 50)
+	bChan, err := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 50)
+	require.NoError(t, err)
 	testBatches(t, bChan)
 
-	bChan = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 3)
+	bChan, err = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 3)
+	require.NoError(t, err)
 	testBatches(t, bChan)
 
-	bChan = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 1)
+	bChan, err = batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 1)
+	require.NoError(t, err)
 	testChannelConcurrentAccessors(t, bChan)
 }
 
 func TestBatchingChannelCap(t *testing.T) {
 	allocate := vector.DefaultVector(allocateInt, nil, nil)
-	ch := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 5)
-	if ch.Cap() != 5 {
+	bChan, err := batchingchannels.NewBatchingChannel(context.Background(), allocate, 2, 5)
+	require.NoError(t, err)
+	if bChan.Cap() != 5 {
 		t.Error("incorrect capacity on infinite channel")
 	}
 }

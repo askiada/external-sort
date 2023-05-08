@@ -56,7 +56,10 @@ func (f *Info) Shuffle(ctx context.Context, chunkFolder string, dumpSize, maxWor
 
 	mu := sync.Mutex{}
 	r := rand.New(rand.NewSource(seed))
-	batchChan := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	batchChan, err := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create new batching channel")
+	}
 	batchChan.G.Go(func() error {
 		for inputReader.Next() {
 			if f.PrintMemUsage {

@@ -48,17 +48,17 @@ type StdSliceWriter struct {
 
 func NewStdSliceWriter(w io.Writer, skipFirst, isGzip bool) Writer {
 	var newR *bufio.Writer
-	s := &StdSliceWriter{
+	ssw := &StdSliceWriter{
 		skipFirst: skipFirst,
 	}
 	if isGzip {
-		s.gw = gzip.NewWriter(w)
-		newR = bufio.NewWriter(s.gw)
+		ssw.gw = gzip.NewWriter(w)
+		newR = bufio.NewWriter(ssw.gw)
 	} else {
 		newR = bufio.NewWriter(w)
 	}
-	s.w = newR
-	return s
+	ssw.w = newR
+	return ssw
 }
 
 func (w *StdSliceWriter) Write(elem interface{}) error {

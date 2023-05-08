@@ -8,8 +8,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// BatchingChannel implements the Channel interface, with the change that instead of producing individual elements
-// on Out(), it batches together the entire internal buffer each time. Trying to construct an unbuffered batching channel
+// BatchingChannel standard channel, with the change that instead of producing individual elements
+// on Out(), it batches together n elements each time. Trying to construct an unbuffered batching channel
 // will panic, that configuration is not supported (and provides no benefit over an unbuffered NativeChannel).
 type BatchingChannel struct {
 	input           chan interface{}
@@ -22,12 +22,12 @@ type BatchingChannel struct {
 	maxWorker       int
 }
 
-func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker, size int) *BatchingChannel {
+func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker, size int) (*BatchingChannel, error) {
 	if size == 0 {
-		panic("channels: BatchingChannel does not support unbuffered behaviour")
+		return nil, errors.New("does not support unbuffered behaviour")
 	}
 	if size < 0 {
-		panic("channels: invalid negative size in NewBatchingChannel")
+		return nil, errors.New("does not support negative size")
 	}
 	errGrp, errGrpContext := errgroup.WithContext(ctx)
 	errGrp.SetLimit(maxWorker)
@@ -41,7 +41,7 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 		internalContext: errGrpContext,
 	}
 	go bChan.batchingBuffer()
-	return bChan
+	return bChan, nil
 }
 
 func (ch *BatchingChannel) In() chan<- interface{} {

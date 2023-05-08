@@ -17,7 +17,7 @@ type Allocate struct {
 	Key      func(elem interface{}) (key.Key, error)
 }
 
-func DefaultVector(allocateKey func(elem interface{}) (key.Key, error), fnReader func(r io.Reader) (reader.Reader, error), fnWr func(w io.Writer) (writer.Writer, error)) *Allocate {
+func DefaultVector(allocateKey func(elem interface{}) (key.Key, error), fnReader reader.Config, fnWr writer.Config) *Allocate {
 	return &Allocate{
 		FnReader: fnReader,
 		FnWriter: fnWr,

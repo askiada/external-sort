@@ -49,12 +49,15 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get input reader")
 	}
-	count_rows := 0
+	countRows := 0
 	chunkPaths := []string{}
 
 	mu := sync.Mutex{}
 
-	batchChan := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	batchChan, err := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create new batching channel")
+	}
 	batchChan.G.Go(func() error {
 		for inputReader.Next() {
 			if f.PrintMemUsage {
@@ -69,7 +72,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			} else {
 				batchChan.In() <- row
 			}
-			count_rows++
+			countRows++
 		}
 		batchChan.Close()
 		if inputReader.Err() != nil {
@@ -87,10 +90,13 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		mu.Unlock()
 		v.Sort()
 		if f.WithHeader {
+			mu.Lock()
 			err = v.PushFrontNoKey(f.headers)
 			if err != nil {
+				mu.Unlock()
 				return err
 			}
+			mu.Unlock()
 		}
 		err := f.Allocate.Dump(v, chunkPath)
 		if err != nil {
@@ -104,6 +110,6 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if err != nil {
 		return nil, errors.Wrap(err, "can't process batching channel")
 	}
-	f.totalRows = count_rows
+	f.totalRows = countRows
 	return chunkPaths, nil
 }
