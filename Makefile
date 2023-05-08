@@ -34,3 +34,7 @@ build_docker: ## Build a docker image from current git sha
 	@docker build \
 		--build-arg BUILDKIT_INLINE_CACHE=1 \
 		-t $(docker_image):$(tag) .
+
+.PHONY: ci_tests
+ci_tests: ## Run tests for CI environment.
+	go test -trimpath --timeout=10m -failfast -v -race -covermode=atomic -coverprofile=coverage.out ./...
