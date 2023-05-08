@@ -8,7 +8,6 @@ docker_image=askiada/external-sort
 include ./env.list
 export $(shell sed 's/=.*//' ./env.list)
 
-
 .PHONY: test
 test:
 	go test ./...

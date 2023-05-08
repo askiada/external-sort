@@ -18,6 +18,7 @@ func AllocateSlice(size int, allocateKey func(line string) (key.Key, error)) Vec
 type SliceVec struct {
 	allocateKey func(line string) (key.Key, error)
 	s           []*Element
+	currOffset  int64
 }
 
 func (v *SliceVec) Reset() {
@@ -33,11 +34,17 @@ func (v *SliceVec) Len() int {
 }
 
 func (v *SliceVec) PushBack(line string) error {
-	k, err := v.allocateKey(line)
+	keyValue, err := v.allocateKey(line)
 	if err != nil {
 		return err
 	}
-	v.s = append(v.s, &Element{Line: line, Key: k})
+	v.s = append(v.s, &Element{
+		//Line:   line,
+		Key:    keyValue,
+		Offset: v.currOffset,
+		Len:    len(line),
+	})
+	v.currOffset += int64(len(line))
 	return nil
 }
 
@@ -49,4 +56,8 @@ func (v *SliceVec) Sort() {
 
 func (v *SliceVec) FrontShift() {
 	v.s = v.s[1:]
+}
+
+func (v *SliceVec) SetCurrOffet(curr int64) {
+	v.currOffset = curr
 }

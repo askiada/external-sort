@@ -89,9 +89,9 @@ func (ch *BatchingChannel) Close() {
 func (ch *BatchingChannel) batchingBuffer() {
 	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 	for {
-		elem, open := <-ch.input
+		text, open := <-ch.input
 		if open {
-			err := ch.buffer.PushBack(elem)
+			err := ch.buffer.PushBack(text)
 			if err != nil {
 				ch.g.Go(func() error {
 					return err
@@ -104,8 +104,10 @@ func (ch *BatchingChannel) batchingBuffer() {
 			break
 		}
 		if ch.buffer.Len() == ch.size {
+			curr := ch.buffer.Get(ch.buffer.Len()-1).Offset + int64(ch.buffer.Get(ch.buffer.Len()-1).Len)
 			ch.output <- ch.buffer
 			ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
+			ch.buffer.SetCurrOffet(curr)
 		}
 	}
 

@@ -19,6 +19,7 @@ type Info struct {
 	mu            *MemUsage
 	Reader        io.Reader
 	Allocate      *vector.Allocate
+	InputPath     string
 	OutputPath    string
 	totalRows     int
 	PrintMemUsage bool
@@ -43,6 +44,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	row := 0
 	chunkPaths := []string{}
 	scanner := bufio.NewScanner(f.Reader)
+	scanner.Split(ScanLines)
 	mu := sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -67,7 +69,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
 		mu.Unlock()
 		v.Sort()
-		err := vector.Dump(v, chunkPath)
+		err := vector.Dump(v /* f.InputPath,*/, chunkPath)
 		if err != nil {
 			return err
 		}

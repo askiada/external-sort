@@ -2,19 +2,27 @@ package file
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
+	"sync"
 
+	"github.com/askiada/external-sort/file/circularqueue"
 	"github.com/askiada/external-sort/vector"
-
+	"github.com/askiada/external-sort/vector/key"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/mmap"
+	"golang.org/x/sync/errgroup"
 )
 
-// chunkInfo Describe a chunk.
+// chunkInfo Describe a chunk .
 type chunkInfo struct {
 	file     *os.File
 	scanner  *bufio.Scanner
-	buffer   vector.Vector
+	buffer   []*vector.Element
+	emptyKey func() key.Key
 	filename string
 }
 
@@ -24,7 +32,27 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 	i := 0
 	for i < size && c.scanner.Scan() {
 		text := c.scanner.Text()
-		c.buffer.PushBack(text)
+		splitted := strings.Split(text, "\t")
+		keyVal := splitted[0]
+		offset, err := strconv.ParseInt(splitted[1], 10, 64)
+		if err != nil {
+			return err
+		}
+
+		keyStruct := c.emptyKey()
+		err = keyStruct.FromString(keyVal)
+		if err != nil {
+			return err
+		}
+		l, err := strconv.Atoi(splitted[2])
+		if err != nil {
+			return err
+		}
+		c.buffer = append(c.buffer, &vector.Element{
+			Key:    keyStruct,
+			Offset: offset,
+			Len:    l,
+		})
 		i++
 	}
 	if c.scanner.Err() != nil {
@@ -35,21 +63,32 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 
 // chunks Pull of chunks.
 type chunks struct {
-	list []*chunkInfo
+	list          []*chunkInfo
+	originalFiles *circularqueue.Circularqueue
 }
 
 // new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int) error {
+func (c *chunks) new(inputPath, chunkPath string, emptyKey func() key.Key, size int, circQueueSize int) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
 		return err
 	}
+	c.originalFiles = circularqueue.New(circQueueSize)
+	for i := 0; i < circQueueSize; i++ {
+		originalFile, err := mmap.Open(inputPath)
+		if err != nil {
+			return err
+		}
+		c.originalFiles.Add(originalFile)
+	}
+
 	scanner := bufio.NewScanner(f)
 	elem := &chunkInfo{
 		filename: chunkPath,
 		file:     f,
 		scanner:  scanner,
-		buffer:   allocate.Vector(size, allocate.Key),
+		buffer:   make([]*vector.Element, 0, size),
+		emptyKey: emptyKey,
 	}
 	err = elem.pullSubset(size)
 	if err != nil {
@@ -99,7 +138,7 @@ func (c *chunks) len() int {
 func (c *chunks) resetOrder() {
 	if len(c.list) > 1 {
 		sort.Slice(c.list, func(i, j int) bool {
-			return vector.Less(c.list[i].buffer.Get(0), c.list[j].buffer.Get(0))
+			return vector.Less(c.list[i].buffer[0], c.list[j].buffer[0])
 		})
 	}
 }
@@ -109,16 +148,61 @@ func (c *chunks) moveFirstChunkToCorrectIndex() {
 	elem := c.list[0]
 	c.list = c.list[1:]
 	pos := sort.Search(len(c.list), func(i int) bool {
-		return !vector.Less(c.list[i].buffer.Get(0), elem.buffer.Get(0))
+		return !vector.Less(c.list[i].buffer[0], elem.buffer[0])
 	})
 	// TODO: c.list = c.list[1:] and the following line create an unecessary allocation.
 	c.list = append(c.list[:pos], append([]*chunkInfo{elem}, c.list[pos:]...)...)
 }
 
 // min Check all the first elements of all the chunks and returns the smallest value.
-func (c *chunks) min() (minChunk *chunkInfo, minValue *vector.Element, minIdx int) {
-	minValue = c.list[0].buffer.Get(0)
-	minIdx = 0
+func (c *chunks) min() (minChunk *chunkInfo, minElem *vector.Element, err error) {
 	minChunk = c.list[0]
-	return minChunk, minValue, minIdx
+	minElem = c.list[0].buffer[0]
+	return minChunk, minElem, err
+}
+
+func (c *chunks) WriteBuffer(buffer *bufio.Writer, elems []*vector.Element) error {
+	// var rows [][]byte
+
+	type rows struct {
+		data [][]byte
+	}
+
+	out := &rows{
+		data: make([][]byte, len(elems), len(elems)),
+	}
+	mu := &sync.Mutex{}
+
+	g, _ := errgroup.WithContext(context.Background())
+	for i, elem := range elems {
+		i := i
+		elem := elem
+		out := out
+		g.Go(func() error {
+			return c.originalFiles.Run(func(originalFile *mmap.ReaderAt) error {
+				data := make([]byte, elem.Len)
+				_, err := originalFile.ReadAt(data, elem.Offset)
+				if err != nil {
+					return err
+				}
+				if data[len(data)-1] != '\n' {
+					data = append(data, '\n')
+				}
+				mu.Lock()
+				out.data[i] = data
+				mu.Unlock()
+				return nil
+			})
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	for _, row := range out.data {
+		_, err := buffer.Write(row)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

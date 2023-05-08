@@ -28,6 +28,7 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
 	rootCmd.PersistentFlags().Int64VarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt64(internal.MaxWorkersName), "max worker.")
 	rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
+	rootCmd.PersistentFlags().IntVarP(&internal.MmapSize, internal.MmapSizeName, "m", viper.GetInt(internal.MmapSizeName), "mmap size.")
 
 	fmt.Println("Input file", internal.InputFile)
 	fmt.Println("Output file", internal.OutputFile)
@@ -60,7 +61,7 @@ func rootRun(cmd *cobra.Command, args []string) error {
 	}
 	// perform a merge sort on all the chunks files.
 	// we sort using a buffer so we don't have to load the entire chunks when merging
-	err = fI.MergeSort(chunkPaths, internal.OutputBufferSize)
+	err = fI.MergeSort(chunkPaths, internal.OutputBufferSize, internal.MmapSize)
 	if err != nil {
 		return err
 	}
