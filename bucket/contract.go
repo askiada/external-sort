@@ -31,10 +31,12 @@ func PartBodyMaxRetries(r int) ConfigFunc {
 	}
 }
 
+const mbConversion = 1024 * 1024
+
 // Buffer is the amount of memory in MB to use for buffering the data.
 func Buffer(buffer int) ConfigFunc {
 	return func(s *S3) {
-		s.bufferLen = buffer * 1024 * 1024
+		s.bufferLen = buffer * mbConversion
 	}
 }
 

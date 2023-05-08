@@ -29,6 +29,7 @@ func AllocateUpperString(line string) (Key, error) {
 func (k *UpperString) Less(other Key) bool {
 	return k.value < other.(*UpperString).value
 }
+
 func (k *UpperString) Equal(other Key) bool {
 	return k.value == other.(*UpperString).value
 }

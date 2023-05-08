@@ -3,10 +3,9 @@ package file
 import (
 	"context"
 	"io"
-	"sync"
-
 	"path"
 	"strconv"
+	"sync"
 
 	"github.com/askiada/external-sort/file/batchingchannels"
 	"github.com/askiada/external-sort/vector"
@@ -32,10 +31,9 @@ type Info struct {
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
 // Store all the chunks in a folder an returns all the paths.
-func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpSize int, maxWorkers int64) ([]string, error) {
-	fn := "scan and sort and dump"
+func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpSize, maxWorkers int) ([]string, error) {
 	if dumpSize <= 0 {
-		return nil, errors.Wrap(errors.New("dump size must be greater than 0"), fn)
+		return nil, errors.New("dump size must be greater than 0")
 	}
 
 	if f.PrintMemUsage && f.mu == nil {
@@ -44,12 +42,12 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 
 	err := clearChunkFolder(chunkFolder)
 	if err != nil {
-		return nil, errors.Wrap(err, fn)
+		return nil, errors.Wrap(err, "can't clear chunk folder")
 	}
 
 	inputReader, err := f.Allocate.FnReader(f.InputReader)
 	if err != nil {
-		return nil, errors.Wrap(err, fn)
+		return nil, errors.Wrap(err, "can't get input reader")
 	}
 	count_rows := 0
 	chunkPaths := []string{}
@@ -64,7 +62,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 			}
 			row, err := inputReader.Read()
 			if err != nil {
-				return errors.Wrap(err, fn)
+				return errors.Wrap(err, "can't read from input reader")
 			}
 			if f.WithHeader && f.headers == nil {
 				f.headers = row
@@ -75,7 +73,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		}
 		batchChan.Close()
 		if inputReader.Err() != nil {
-			return errors.Wrap(inputReader.Err(), fn)
+			return errors.Wrap(inputReader.Err(), "input reader encountered an error")
 		}
 		return nil
 	})
@@ -104,7 +102,7 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, fn)
+		return nil, errors.Wrap(err, "can't process batching channel")
 	}
 	f.totalRows = count_rows
 	return chunkPaths, nil

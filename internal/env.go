@@ -31,7 +31,7 @@ var (
 	OutputFile       string
 	ChunkFolder      string
 	ChunkSize        int
-	MaxWorkers       int64
+	MaxWorkers       int
 	OutputBufferSize int
 
 	S3Region           string
@@ -51,6 +51,6 @@ func init() {
 	viper.SetDefault(TsvFieldsName, []string{"0"})
 
 	viper.SetDefault(S3RegionName, "eu-west-1")
-	viper.SetDefault(S3RetryMaxAttemptsName, 10)
+	viper.SetDefault(S3RetryMaxAttemptsName, 10) //nolint //gomnd
 	viper.SetDefault(IsGzipName, false)
 }

@@ -72,8 +72,29 @@ func TestBasics(t *testing.T) {
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 		"100 elems": {
-			filename:       "testdata/100elems.tsv",
-			expectedOutput: []string{"3", "4", "5", "6", "6", "7", "7", "7", "8", "8", "9", "9", "10", "10", "15", "18", "18", "18", "18", "21", "22", "22", "25", "25", "25", "25", "25", "26", "26", "27", "27", "28", "28", "29", "29", "29", "30", "30", "31", "31", "33", "33", "34", "36", "37", "39", "39", "39", "40", "41", "41", "42", "43", "43", "47", "47", "49", "50", "50", "52", "52", "53", "54", "55", "55", "55", "56", "57", "57", "59", "60", "61", "62", "63", "67", "71", "71", "72", "72", "73", "74", "75", "78", "79", "80", "80", "82", "89", "89", "89", "91", "91", "92", "92", "93", "93", "94", "97", "97", "99"},
+			filename: "testdata/100elems.tsv",
+			expectedOutput: []string{
+				"3", "4", "5", "6", "6",
+				"7", "7", "7", "8", "8",
+				"9", "9", "10", "10", "15",
+				"18", "18", "18", "18", "21",
+				"22", "22", "25", "25", "25",
+				"25", "25", "26", "26", "27",
+				"27", "28", "28", "29", "29",
+				"29", "30", "30", "31", "31",
+				"33", "33", "34", "36", "37",
+				"39", "39", "39", "40", "41",
+				"41", "42", "43", "43", "47",
+				"47", "49", "50", "50", "52",
+				"52", "53", "54", "55", "55",
+				"55", "56", "57", "57", "59",
+				"60", "61", "62", "63", "67",
+				"71", "71", "72", "72", "73",
+				"74", "75", "78", "79", "80",
+				"80", "82", "89", "89", "89",
+				"91", "91", "92", "92", "93",
+				"93", "94", "97", "97", "99",
+			},
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
@@ -227,6 +248,7 @@ func Test100ElemsWithHeaders(t *testing.T) {
 		})
 	}
 }
+
 func Test100ElemsWithHeadersWithDuplicates(t *testing.T) {
 	tcs := map[string]struct {
 		filename       string
@@ -275,7 +297,8 @@ func TestTsvKey(t *testing.T) {
 	}{
 		"Tsv file": {
 			filename: "testdata/multifields.tsv",
-			expectedOutput: []string{"3	D	equipment",
+			expectedOutput: []string{
+				"3	D	equipment",
 				"7	G	inflation",
 				"6	H	delivery",
 				"9	I	child",
@@ -284,7 +307,8 @@ func TestTsvKey(t *testing.T) {
 				"1	N	guidance",
 				"10	S	feedback",
 				"2	T	library",
-				"4	Z	news"},
+				"4	Z	news",
+			},
 			outputFilename: "testdata/chunks/output.tsv",
 		},
 	}
@@ -316,6 +340,7 @@ func TestTsvKey(t *testing.T) {
 		})
 	}
 }
+
 func prepareChunksShuffle(ctx context.Context, t *testing.T, filename, outputFilename string, chunkSize int, mergeSort bool, bufferSize int, withHeaders bool, dropDuplicates, isGzip bool) *file.Info {
 	t.Helper()
 	i := rw.NewInputOutput(ctx)
@@ -346,6 +371,7 @@ func prepareChunksShuffle(ctx context.Context, t *testing.T, filename, outputFil
 
 	return fI
 }
+
 func Test100ElemsShuffle(t *testing.T) {
 	tcs := map[string]struct {
 		filename       string

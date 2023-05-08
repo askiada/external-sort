@@ -42,9 +42,11 @@ func (s *StdScanner) Next() bool {
 	}
 	return next
 }
+
 func (s *StdScanner) Read() (interface{}, error) {
 	return s.r.Text(), nil
 }
+
 func (s *StdScanner) Err() error {
 	return s.r.Err()
 }
@@ -78,6 +80,7 @@ func (s *StdSliceScanner) Next() bool {
 	}
 	return next
 }
+
 func (s *StdSliceScanner) Read() (interface{}, error) {
 	line := s.r.Text()
 	before, after, found := strings.Cut(line, "##!!##")
@@ -86,6 +89,7 @@ func (s *StdSliceScanner) Read() (interface{}, error) {
 	}
 	return []string{before, after}, nil
 }
+
 func (s *StdSliceScanner) Err() error {
 	return s.r.Err()
 }

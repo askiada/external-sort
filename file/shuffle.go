@@ -18,7 +18,7 @@ import (
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
 // Store all the chunks in a folder an returns all the paths.
-func (f *Info) Shuffle(ctx context.Context, chunkFolder string, dumpSize int, maxWorkers int64, k int, seed int64, isGzip bool) ([]string, error) {
+func (f *Info) Shuffle(ctx context.Context, chunkFolder string, dumpSize, maxWorkers, k int, seed int64, isGzip bool) ([]string, error) {
 	fn := "scan and shuffle and dump"
 	if dumpSize <= 0 {
 		return nil, errors.Wrap(errors.New("dump size must be greater than 0"), fn)

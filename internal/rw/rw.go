@@ -66,12 +66,12 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		if err != nil {
 			return errors.Wrap(err, "can't create s3 client")
 		}
-		files := []*bucket.DownloadFileInfo{}
+		files := []*bucket.S3FileInfo{}
 		for _, inputFile := range inputFiles {
 			u, _ := url.Parse(inputFile)
 			u.Path = strings.TrimLeft(u.Path, "/")
 			logger.Debugf("Proto: %q, Bucket: %q, Key: %q", u.Scheme, u.Host, u.Path)
-			files = append(files, &bucket.DownloadFileInfo{
+			files = append(files, &bucket.S3FileInfo{
 				Bucket: u.Host,
 				Key:    u.Path,
 			})
@@ -81,7 +81,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		i.Input = pr
 		i.inputPipe = pr
 		i.g.Go(func() error {
-			defer pw.Close() // nolint:errcheck //no need to check this error
+			defer pw.Close() //nolint:errcheck //no need to check this error
 			err := s3Api.Download(i.dCtx, pw, files...)
 			if err != nil {
 				return errors.Wrap(err, "can't download files")
@@ -124,7 +124,7 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		i.Output = pw
 		i.outputPipe = pw
 		i.g.Go(func() error {
-			defer pr.Close() // nolint:errcheck //no need to check this error
+			defer pr.Close() //nolint:errcheck //no need to check this error
 			err := s3Api.Upload(i.dCtx, pr, u.Host, u.Path)
 			if err != nil {
 				return errors.Wrapf(err, "can't upload file %s", outputFile)

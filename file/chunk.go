@@ -21,18 +21,22 @@ type chunkInfo struct {
 // pullSubset Add to vector the specified number of elements.
 // It stops if there is no elements left to add.
 func (c *chunkInfo) pullSubset(size int) (err error) {
-	i := 0
-	for i < size && c.reader.Next() {
+	elemIdx := 0
+	for elemIdx < size && c.reader.Next() {
 		row, err := c.reader.Read()
 		if err != nil {
-			return errors.Wrap(err, "")
+			return errors.Wrap(err, "can't read chunk")
 		}
-		c.buffer.PushBack(row)
-		i++
+		err = c.buffer.PushBack(row)
+		if err != nil {
+			return errors.Wrap(err, "can't push back row")
+		}
+		elemIdx++
 	}
 	if c.reader.Err() != nil {
-		return c.reader.Err()
+		return errors.Wrap(c.reader.Err(), "chunk reader encountered an error")
 	}
+
 	return nil
 }
 
@@ -41,7 +45,7 @@ type chunks struct {
 	list []*chunkInfo
 }
 
-// new Create a new chunk and initialize it.
+// new Create a new chunk and initialise it.
 func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, withHeader bool) error {
 	f, err := os.Open(chunkPath)
 	if err != nil {
@@ -122,7 +126,7 @@ func (c *chunks) moveFirstChunkToCorrectIndex() {
 	pos := sort.Search(len(c.list), func(i int) bool {
 		return !vector.Less(c.list[i].buffer.Get(0), elem.buffer.Get(0))
 	})
-	// TODO: c.list = c.list[1:] and the following line create an unecessary allocation.
+	// TODO: c.list = c.list[1:] and the following line create an unnecessary allocation.
 	c.list = append(c.list[:pos], append([]*chunkInfo{elem}, c.list[pos:]...)...)
 }
 

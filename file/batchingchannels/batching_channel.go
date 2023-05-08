@@ -4,45 +4,44 @@ import (
 	"context"
 
 	"github.com/askiada/external-sort/vector"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 // BatchingChannel implements the Channel interface, with the change that instead of producing individual elements
 // on Out(), it batches together the entire internal buffer each time. Trying to construct an unbuffered batching channel
 // will panic, that configuration is not supported (and provides no benefit over an unbuffered NativeChannel).
 type BatchingChannel struct {
-	input     chan interface{}
-	output    chan vector.Vector
-	buffer    vector.Vector
-	allocate  *vector.Allocate
-	G         *errgroup.Group
-	sem       *semaphore.Weighted
-	dCtx      context.Context
-	size      int
-	maxWorker int64
+	input           chan interface{}
+	output          chan vector.Vector
+	buffer          vector.Vector
+	allocate        *vector.Allocate
+	G               *errgroup.Group
+	internalContext context.Context //nolint //containedcontext
+	size            int
+	maxWorker       int
 }
 
-func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker int64, size int) *BatchingChannel {
+func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker, size int) *BatchingChannel {
 	if size == 0 {
 		panic("channels: BatchingChannel does not support unbuffered behaviour")
 	}
 	if size < 0 {
 		panic("channels: invalid negative size in NewBatchingChannel")
 	}
-	g, dCtx := errgroup.WithContext(ctx)
-	ch := &BatchingChannel{
-		input:     make(chan interface{}),
-		output:    make(chan vector.Vector),
-		size:      size,
-		allocate:  allocate,
-		maxWorker: maxWorker,
-		G:         g,
-		sem:       semaphore.NewWeighted(maxWorker),
-		dCtx:      dCtx,
+	errGrp, errGrpContext := errgroup.WithContext(ctx)
+	errGrp.SetLimit(maxWorker)
+	bChan := &BatchingChannel{
+		input:           make(chan interface{}),
+		output:          make(chan vector.Vector),
+		size:            size,
+		allocate:        allocate,
+		maxWorker:       maxWorker,
+		G:               errGrp,
+		internalContext: errGrpContext,
 	}
-	go ch.batchingBuffer()
-	return ch
+	go bChan.batchingBuffer()
+	return bChan
 }
 
 func (ch *BatchingChannel) In() chan<- interface{} {
@@ -58,18 +57,14 @@ func (ch *BatchingChannel) Out() <-chan vector.Vector {
 
 func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	for val := range ch.Out() {
-		if err := ch.sem.Acquire(ch.dCtx, 1); err != nil {
-			return err
-		}
 		val := val
 		ch.G.Go(func() error {
-			defer ch.sem.Release(1)
 			return f(val)
 		})
 	}
 	err := ch.G.Wait()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "one of the task failed")
 	}
 	return nil
 }
@@ -94,13 +89,14 @@ func (ch *BatchingChannel) batchingBuffer() {
 			err := ch.buffer.PushBack(row)
 			if err != nil {
 				ch.G.Go(func() error {
-					return err
+					return errors.Wrap(err, "can't push back row")
 				})
 			}
 		} else {
 			if ch.buffer.Len() > 0 {
 				ch.output <- ch.buffer
 			}
+
 			break
 		}
 		if ch.buffer.Len() == ch.size {

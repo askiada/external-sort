@@ -50,7 +50,7 @@ func newCommand() *command {
 	root.rootCmd.PersistentFlags().StringVarP(&internal.ChunkFolder, internal.ChunkFolderName, "c", viper.GetString(internal.ChunkFolderName), "chunk folder.")
 
 	root.rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
-	root.rootCmd.PersistentFlags().Int64VarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt64(internal.MaxWorkersName), "max worker.")
+	root.rootCmd.PersistentFlags().IntVarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt(internal.MaxWorkersName), "max worker.")
 	root.rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
 	root.sortCmd.PersistentFlags().StringSliceVarP(&internal.TsvFields, internal.TsvFieldsName, "t", viper.GetStringSlice(internal.TsvFieldsName), "")
 
