@@ -19,29 +19,34 @@ import (
 func BenchmarkMergeSort(b *testing.B) {
 	filename := "test.tsv"
 	ctx := context.Background()
-	i := rw.NewInputOutput(ctx)
-	err := i.SetInputReader(ctx, filename)
+	inputOutput := rw.NewInputOutput(ctx)
+	err := inputOutput.SetInputReader(ctx, filename)
 	assert.NoError(b, err)
-	err = i.SetOutputWriter(ctx, "testdata/chunks/output.tsv")
+	err = inputOutput.SetOutputWriter(ctx, "testdata/chunks/output.tsv")
 	assert.NoError(b, err)
 	chunkSize := 10000
 	bufferSize := 5000
-	fI := &file.Info{
-		InputReader: i.Input,
-		Allocate:    vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil }),
-		OutputFile:  i.Output,
+	fileInfo := &file.Info{
+		InputReader: inputOutput.Input,
+		Allocate: vector.DefaultVector(
+			key.AllocateInt,
+			func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+			func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+		),
+		OutputFile: inputOutput.Output,
 	}
-	i.Do(func() (err error) {
-		chunkPaths, err := fI.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)
+	inputOutput.Do(func() (err error) {
+		chunkPaths, err := fileInfo.CreateSortedChunks(context.Background(), "testdata/chunks", chunkSize, 100)
 		assert.NoError(b, err)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			err = fI.MergeSort(chunkPaths, bufferSize, false)
+			err = fileInfo.MergeSort(chunkPaths, bufferSize, false)
 			_ = err
 		}
+
 		return nil
 	})
-	err = i.Err()
+	err = inputOutput.Err()
 	assert.NoError(b, err)
 	dir, err := os.ReadDir("testdata/chunks")
 	assert.NoError(b, err)

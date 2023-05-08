@@ -16,17 +16,17 @@ func Test(t *testing.T) {
 	t.Skip("to rework")
 	f, err := os.Open("/mnt/c/Users/Alex/Downloads/recordings.59.tsv.gz")
 	require.NoError(t, err)
-	r, err := reader.NewGZipSeparatedValues(bufio.NewReader(f), '\t')
+	rder, err := reader.NewGZipSeparatedValues(bufio.NewReader(f), '\t')
 	require.NoError(t, err)
 	count := 0
-	for r.Next() {
-		row, err := r.Read()
+	for rder.Next() {
+		row, err := rder.Read()
 		require.NoError(t, err)
 		_ = row
 		count++
 	}
 	assert.Equal(t, 2853701, count)
-	require.NoError(t, r.Err())
+	require.NoError(t, rder.Err())
 }
 
 func TestS3(t *testing.T) {
@@ -36,15 +36,15 @@ func TestS3(t *testing.T) {
 	err := i.SetInputReader(ctx, "s3://blokur-data/ml-title/remote/1/f15c2cf2e3ab46589419e6441b64e3bd/artifacts/input/word2vec/refine/recordings.59.tsv.gz")
 	require.NoError(t, err)
 
-	r, err := reader.NewGZipSeparatedValues(i.Input, '\t')
+	gzipReader, err := reader.NewGZipSeparatedValues(i.Input, '\t')
 	require.NoError(t, err)
 	count := 0
-	for r.Next() {
-		row, err := r.Read()
+	for gzipReader.Next() {
+		row, err := gzipReader.Read()
 		require.NoError(t, err)
 		_ = row
 		count++
 	}
 	assert.Equal(t, 2853701, count)
-	require.NoError(t, r.Err())
+	require.NoError(t, gzipReader.Err())
 }

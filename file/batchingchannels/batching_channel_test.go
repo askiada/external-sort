@@ -19,7 +19,7 @@ type intKey struct {
 	value int
 }
 
-func allocateInt(row interface{}) (key.Key, error) {
+func allocateInt(row interface{}) (key.Key, error) { //nolint //ireturn
 	line, ok := row.(string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to string: %+v", row)

@@ -13,18 +13,16 @@ func AllocateTsv(row interface{}, pos ...int) (Key, error) {
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to []string: %+v", row)
 	}
-	k := strings.Builder{}
+	strBuilder := strings.Builder{}
 	for i, p := range pos {
 		if len(splitted) < p+1 {
 			return nil, errors.Errorf("can't allocate tsv key line is invalid: %s", row)
 		}
-		k.WriteString(splitted[p])
+		strBuilder.WriteString(splitted[p])
 		if i < len(pos)-1 {
-			k.WriteString(salt)
+			strBuilder.WriteString(salt)
 		}
 	}
 
-	// fmt.Println(row, pos, k.String())
-
-	return &String{k.String()}, nil
+	return &String{strBuilder.String()}, nil
 }

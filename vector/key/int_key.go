@@ -6,11 +6,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Int define an integer key.
 type Int struct {
 	value int
 }
 
-func AllocateInt(row interface{}) (Key, error) {
+// AllocateInt create a new integer key.
+func AllocateInt(row interface{}) (Key, error) { //nolint //ireturn
 	line, ok := row.(string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to string: %+v", row)
@@ -22,19 +24,23 @@ func AllocateInt(row interface{}) (Key, error) {
 	return &Int{num}, nil
 }
 
+// Less compare two integer keys.
 func (k *Int) Less(other Key) bool {
 	return k.value < other.(*Int).value //nolint //forcetypeassert
 }
 
+// Equal check tow integer keys are equal.
 func (k *Int) Equal(other Key) bool {
 	return k.value == other.(*Int).value //nolint //forcetypeassert
 }
 
+// IntFromSlice define an integer key from a position in a slice of integers.
 type IntFromSlice struct {
 	value int64
 }
 
-func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) {
+// AllocateIntFromSlice create a new integer key from a position in a slice of integers.
+func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) { //nolint //ireturn
 	line, ok := row.([]string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to []string: %+v", row)
@@ -46,10 +52,12 @@ func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) {
 	return &IntFromSlice{num}, nil
 }
 
+// Less compare two integer keys.
 func (k *IntFromSlice) Less(other Key) bool {
 	return k.value < other.(*IntFromSlice).value //nolint //forcetypeassert
 }
 
+// Equal check tow integer keys are equal.
 func (k *IntFromSlice) Equal(other Key) bool {
 	return k.value == other.(*IntFromSlice).value //nolint //forcetypeassert
 }

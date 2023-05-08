@@ -27,29 +27,7 @@ type command struct {
 	shuffleCmd *cobra.Command
 }
 
-func newCommand() *command {
-	root := &command{
-		rootCmd: &cobra.Command{
-			Use:   "external",
-			Short: "Perform an external task on an input file",
-		},
-		sortCmd: &cobra.Command{
-			Use:   "sort",
-			Short: "Perform an external sorting on an input file",
-			PreRun: func(cmd *cobra.Command, args []string) {
-				cmd.SetContext(context.WithValue(cmd.Parent().Context(), "cmd", "sort"))
-			},
-			RunE: sortRun,
-		},
-		shuffleCmd: &cobra.Command{
-			Use:   "shuffle",
-			Short: "Perform an external shufflin on an input file",
-			PreRun: func(cmd *cobra.Command, args []string) {
-				cmd.SetContext(context.WithValue(cmd.Parent().Context(), "cmd", "shuffle"))
-			},
-			RunE: shuffleRun,
-		},
-	}
+func setFlags(root *command) {
 	root.rootCmd.PersistentFlags().BoolVarP(
 		&internal.WithHeader,
 		internal.WithHeaderName,
@@ -127,18 +105,43 @@ func newCommand() *command {
 		viper.GetBool(internal.IsGzipName),
 		"",
 	)
+}
 
+func newCommand() *command {
+	root := &command{
+		rootCmd: &cobra.Command{
+			Use:   "external",
+			Short: "Perform an external task on an input file",
+		},
+		sortCmd: &cobra.Command{
+			Use:   "sort",
+			Short: "Perform an external sorting on an input file",
+			PreRun: func(cmd *cobra.Command, args []string) {
+				cmd.SetContext(cmd.Parent().Context())
+			},
+			RunE: sortRun,
+		},
+		shuffleCmd: &cobra.Command{
+			Use:   "shuffle",
+			Short: "Perform an external shufflin on an input file",
+			PreRun: func(cmd *cobra.Command, args []string) {
+				cmd.SetContext(cmd.Parent().Context())
+			},
+			RunE: shuffleRun,
+		},
+	}
 	root.rootCmd.AddCommand(root.sortCmd, root.shuffleCmd)
 	return root
 }
 
 func main() {
 	root := newCommand()
+	setFlags(root)
 	ctx := context.Background()
 	cobra.CheckErr(root.rootCmd.ExecuteContext(ctx))
 }
 
-func sortRun(cmd *cobra.Command, args []string) error {
+func sortRun(cmd *cobra.Command, _ []string) error {
 	logger.Infoln("Input files", internal.InputFiles)
 	logger.Infoln("With header", internal.WithHeader)
 	logger.Infoln("Output file", internal.OutputFile)
@@ -146,46 +149,61 @@ func sortRun(cmd *cobra.Command, args []string) error {
 	logger.Infoln("TSV Fields", internal.TsvFields)
 
 	start := time.Now()
-	i := rw.NewInputOutput(cmd.Context())
-	err := i.SetInputReader(cmd.Context(), internal.InputFiles...)
+	inputOutput := rw.NewInputOutput(cmd.Context())
+	err := inputOutput.SetInputReader(cmd.Context(), internal.InputFiles...)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't set input reader")
 	}
-	err = i.SetOutputWriter(cmd.Context(), internal.OutputFile)
+	err = inputOutput.SetOutputWriter(cmd.Context(), internal.OutputFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't set output writer")
 	}
 	tsvFields := []int{}
 	for _, field := range internal.TsvFields {
 		i, err := strconv.Atoi(field)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't convert field %s", field)
 		}
 		tsvFields = append(tsvFields, i)
 	}
-	fI := &file.Info{
+	fileInfo := &file.Info{
 		WithHeader:  internal.WithHeader,
-		InputReader: i.Input,
-		OutputFile:  i.Output,
+		InputReader: inputOutput.Input,
+		OutputFile:  inputOutput.Output,
 		Allocate: vector.DefaultVector(
 			func(row interface{}) (key.Key, error) {
-				return key.AllocateTsv(row, tsvFields...)
+				k, err := key.AllocateTsv(row, tsvFields...)
+				if err != nil {
+					return nil, errors.Wrapf(err, "can't allocate tsv %+v", row)
+				}
+				return k, nil
 			},
-			func(r io.Reader) (reader.Reader, error) { return reader.NewGZipSeparatedValues(r, '\t') }, func(w io.Writer) (writer.Writer, error) {
-				return writer.NewGZipSeparatedValues(w, '\t')
+			func(r io.Reader) (reader.Reader, error) {
+				gzipReader, err := reader.NewGZipSeparatedValues(r, '\t')
+				if err != nil {
+					return nil, errors.Wrap(err, "can't create Gzip reader")
+				}
+				return gzipReader, nil
+			},
+			func(w io.Writer) (writer.Writer, error) {
+				gzipWriter, err := writer.NewGZipSeparatedValues(w, '\t')
+				if err != nil {
+					return nil, errors.Wrap(err, "can't create Gzip writer")
+				}
+				return gzipWriter, nil
 			},
 		),
 		PrintMemUsage: false,
 	}
-	i.Do(func() error {
+	inputOutput.Do(func() error {
 		// create small files with maximum 30 rows in each
-		chunkPaths, err := fI.CreateSortedChunks(context.Background(), internal.ChunkFolder, internal.ChunkSize, internal.MaxWorkers)
+		chunkPaths, err := fileInfo.CreateSortedChunks(cmd.Context(), internal.ChunkFolder, internal.ChunkSize, internal.MaxWorkers)
 		if err != nil {
 			return errors.Wrap(err, "can't create sorted chunks")
 		}
 		// perform a merge sort on all the chunks files.
 		// we sort using a buffer so we don't have to load the entire chunks when merging
-		err = fI.MergeSort(chunkPaths, internal.OutputBufferSize, true)
+		err = fileInfo.MergeSort(chunkPaths, internal.OutputBufferSize, true)
 		if err != nil {
 			return errors.Wrap(err, "can't merge sort")
 		}
@@ -193,40 +211,47 @@ func sortRun(cmd *cobra.Command, args []string) error {
 		logger.Infoln("It took", elapsed)
 		return nil
 	})
-	err = i.Err()
+	err = inputOutput.Err()
 	if err != nil {
 		return errors.Wrap(err, "can't finish")
 	}
 	return nil
 }
 
-func shuffleRun(cmd *cobra.Command, args []string) error {
+func shuffleRun(cmd *cobra.Command, _ []string) error {
 	logger.Infoln("Input files", internal.InputFiles)
 	logger.Infoln("With header", internal.WithHeader)
 	logger.Infoln("Output file", internal.OutputFile)
 	logger.Infoln("Chunk folder", internal.ChunkFolder)
 	logger.Infoln("GZip file", internal.IsGzip)
 	start := time.Now()
-	ctx := context.Background()
-	i := rw.NewInputOutput(ctx)
-	err := i.SetInputReader(ctx, internal.InputFiles...)
+	inputOutput := rw.NewInputOutput(cmd.Context())
+	err := inputOutput.SetInputReader(cmd.Context(), internal.InputFiles...)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't set input reader")
 	}
-	err = i.SetOutputWriter(ctx, internal.OutputFile)
+	err = inputOutput.SetOutputWriter(cmd.Context(), internal.OutputFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't set output writer")
 	}
 
-	fI := &file.Info{
+	fileInfo := &file.Info{
 		WithHeader:    internal.WithHeader,
-		InputReader:   i.Input,
-		OutputFile:    i.Output,
+		InputReader:   inputOutput.Input,
+		OutputFile:    inputOutput.Output,
 		PrintMemUsage: false,
 	}
-	i.Do(func() error {
+	inputOutput.Do(func() error {
 		// create small files with maximum 30 rows in each
-		_, err := fI.Shuffle(context.Background(), internal.ChunkFolder, internal.ChunkSize, internal.MaxWorkers, internal.OutputBufferSize, time.Now().Unix(), internal.IsGzip)
+		_, err := fileInfo.Shuffle(
+			cmd.Context(),
+			internal.ChunkFolder,
+			internal.ChunkSize,
+			internal.MaxWorkers,
+			internal.OutputBufferSize,
+			time.Now().Unix(),
+			internal.IsGzip,
+		)
 		if err != nil {
 			return errors.Wrap(err, "can't create shuflled chunks")
 		}
@@ -234,7 +259,7 @@ func shuffleRun(cmd *cobra.Command, args []string) error {
 		logger.Infoln("It took", elapsed)
 		return nil
 	})
-	err = i.Err()
+	err = inputOutput.Err()
 	if err != nil {
 		return errors.Wrap(err, "can't finish")
 	}

@@ -92,7 +92,7 @@ func (s *seqWriterAt) WriteAt(p []byte, _ int64) (n int, err error) {
 	return n, errors.Wrap(err, "can't write bytes at offset")
 }
 
-// S3FileInfo describe the path to a file on S3.
+// S3FileInfo define the path to a file on S3.
 type S3FileInfo struct {
 	Bucket string
 	Key    string

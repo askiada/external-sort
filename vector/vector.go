@@ -1,8 +1,8 @@
 package vector
 
 import (
-	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector/key"
@@ -10,13 +10,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Allocate define a vector and methods to read and write it.
 type Allocate struct {
 	Vector   func(int, func(row interface{}) (key.Key, error)) Vector
-	FnReader func(r io.Reader) (reader.Reader, error)
-	FnWriter func(w io.Writer) (writer.Writer, error)
+	FnReader reader.Config
+	FnWriter writer.Config
 	Key      func(elem interface{}) (key.Key, error)
 }
 
+// DefaultVector define a helper function to allocate a vector.
 func DefaultVector(allocateKey func(elem interface{}) (key.Key, error), fnReader reader.Config, fnWr writer.Config) *Allocate {
 	return &Allocate{
 		FnReader: fnReader,
@@ -26,6 +28,7 @@ func DefaultVector(allocateKey func(elem interface{}) (key.Key, error), fnReader
 	}
 }
 
+// Vector define a basic interface to manipulate a vector.
 type Vector interface {
 	// Get Access i-th element
 	Get(i int) *Element
@@ -43,8 +46,11 @@ type Vector interface {
 	Sort()
 }
 
-func (a *Allocate) Dump(v Vector, filename string) error {
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0o644)
+const writeFilePerm = 0o600
+
+// Dump copy a vector to a file.
+func (a *Allocate) Dump(vec Vector, filename string) error {
+	file, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_WRONLY, writeFilePerm)
 	if err != nil {
 		return errors.Errorf("failed creating file: %s", err)
 	}
@@ -52,8 +58,8 @@ func (a *Allocate) Dump(v Vector, filename string) error {
 	if err != nil {
 		return errors.Errorf("failed creating writer: %s", err)
 	}
-	for i := 0; i < v.Len(); i++ {
-		err = datawriter.Write(v.Get(i).Row)
+	for i := 0; i < vec.Len(); i++ {
+		err = datawriter.Write(vec.Get(i).Row)
 		if err != nil {
 			return errors.Errorf("failed writing file: %s", err)
 		}

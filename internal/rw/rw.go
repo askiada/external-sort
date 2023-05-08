@@ -83,13 +83,14 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		pr, pw := io.Pipe()
 		i.Input = pr
 		i.inputPipe = pr
-		i.g.Go(func() error {
-			defer pw.Close() //nolint:errcheck //no need to check this error
-			err := s3Api.Download(i.internalCtx, pw, files...)
+		i.g.Go(func() (err error) {
+			defer func() { err = pw.Close() }()
+			err = s3Api.Download(i.internalCtx, pw, files...)
 			if err != nil {
 				return errors.Wrap(err, "can't download files")
 			}
-			return nil
+
+			return err
 		})
 	} else {
 		var files []io.Reader
@@ -102,6 +103,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		}
 		i.Input = io.MultiReader(files...)
 	}
+
 	return nil
 }
 
@@ -111,9 +113,12 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		if err != nil {
 			return errors.Wrap(err, "can't check s3")
 		}
-		u, _ := url.Parse(outputFile)
-		u.Path = strings.TrimLeft(u.Path, "/")
-		logger.Debugf("Proto: %q, Bucket: %q, Key: %q", u.Scheme, u.Host, u.Path)
+		outputURL, err := url.Parse(outputFile)
+		if err != nil {
+			return errors.Wrapf(err, "can't parse output url %s", outputFile)
+		}
+		outputURL.Path = strings.TrimLeft(outputURL.Path, "/")
+		logger.Debugf("Proto: %q, Bucket: %q, Key: %q", outputURL.Scheme, outputURL.Host, outputURL.Path)
 		s3Api, err := bucket.New(ctx,
 			bucket.Client(i.s3Client),
 			bucket.Buffer(1_000_000),
@@ -126,13 +131,13 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		pr, pw := io.Pipe()
 		i.Output = pw
 		i.outputPipe = pw
-		i.g.Go(func() error {
-			defer pr.Close() //nolint:errcheck //no need to check this error
-			err := s3Api.Upload(i.internalCtx, pr, u.Host, u.Path)
+		i.g.Go(func() (err error) {
+			defer func() { err = pr.Close() }()
+			err = s3Api.Upload(i.internalCtx, pr, outputURL.Host, outputURL.Path)
 			if err != nil {
 				return errors.Wrapf(err, "can't upload file %s", outputFile)
 			}
-			return nil
+			return err
 		})
 	} else {
 		i.Output, err = os.Create(filepath.Clean(outputFile))

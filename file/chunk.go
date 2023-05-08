@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// chunkInfo Describe a chunk.
+// chunkInfo define a chunk.
 type chunkInfo struct {
 	file     *os.File
 	reader   reader.Reader

@@ -35,11 +35,11 @@ func (s *GZipSeparatedValuesWriter) Write(elem interface{}) error {
 	return nil
 }
 
-func (s *GZipSeparatedValuesWriter) Close() error {
-	defer s.gw.Close()
+func (s *GZipSeparatedValuesWriter) Close() (err error) {
+	defer func() { err = s.gw.Close() }()
 	s.w.Flush()
 	if s.w.Error() != nil {
 		return errors.Wrap(s.w.Error(), "can't close writer")
 	}
-	return nil
+	return err
 }

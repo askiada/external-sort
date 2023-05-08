@@ -34,6 +34,7 @@ func (w *StdWriter) Write(elem interface{}) error {
 	return err
 }
 
+// Close close the bufio writer. It is the responsibility of the client to close the underlying writer.
 func (w *StdWriter) Close() error {
 	err := w.w.Flush()
 	if err != nil {
@@ -78,13 +79,14 @@ func (w *StdSliceWriter) Write(elem interface{}) error {
 	return err
 }
 
-func (w *StdSliceWriter) Close() error {
+// Close close the bufio writer. It is the responsibility of the client to close the underlying writer.
+func (w *StdSliceWriter) Close() (err error) {
 	if w.gw != nil {
-		defer w.gw.Close()
+		defer func() { err = w.gw.Close() }()
 	}
-	err := w.w.Flush()
+	err = w.w.Flush()
 	if err != nil {
 		return errors.Wrap(err, "can't close writer")
 	}
-	return nil
+	return err
 }

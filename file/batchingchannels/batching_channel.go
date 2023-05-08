@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// BatchingChannel standard channel, with the change that instead of producing individual elements
+// BatchingChannel define a standard channel, with the change that instead of producing individual elements
 // on Out(), it batches together n elements each time. Trying to construct an unbuffered batching channel
 // will panic, that configuration is not supported (and provides no benefit over an unbuffered NativeChannel).
 type BatchingChannel struct {
@@ -70,6 +70,7 @@ func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	if err != nil {
 		return errors.Wrap(err, "one of the task failed")
 	}
+
 	return nil
 }
 

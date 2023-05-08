@@ -55,75 +55,98 @@ func (f *Info) createChunks(chunkPaths []string, k int) (*chunks, error) {
 	return chunks, nil
 }
 
-func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err error) {
-	var oldElem *vector.Element
-	output := f.Allocate.Vector(k, f.Allocate.Key)
-	if f.PrintMemUsage && f.mu == nil {
-		f.mu = &memUsage{}
-	}
+func (f *Info) handleHeader(output vector.Vector) error {
 	if f.WithHeader {
-		err = output.PushFrontNoKey(f.headers)
+		err := output.PushFrontNoKey(f.headers)
 		if err != nil {
 			return errors.Wrapf(err, "can't add headers %+v", f.headers)
 		}
 	}
-	// create a chunk per file path
-	createdChunks, err := f.createChunks(chunkPaths, k)
+	return nil
+}
+
+type nextChunk struct {
+	oldElem *vector.Element
+}
+
+func (nc *nextChunk) get(output vector.Vector, createdChunks *chunks, dropDuplicates bool) (*chunkInfo, int, error) {
+	minChunk, minValue, minIdx := createdChunks.min()
+	if (!dropDuplicates || nc.oldElem == nil) || (dropDuplicates && !minValue.Key.Equal(nc.oldElem.Key)) {
+		err := output.PushBack(minValue.Row)
+		if err != nil {
+			return nil, 0, errors.Wrapf(err, "can't push back row %+v", minValue.Row)
+		}
+		nc.oldElem = minValue
+	}
+	return minChunk, minIdx, nil
+}
+
+func updateChunks(createdChunks *chunks, minChunk *chunkInfo, minIdx, k int) error {
+	minChunk.buffer.FrontShift()
+	isEmpty := false
+	if minChunk.buffer.Len() == 0 {
+		err := minChunk.pullSubset(k)
+		if err != nil {
+			return errors.Wrapf(err, "can't pull subset from chunk %s", minChunk.filename)
+		}
+		// if after pulling data the chunk buffer is still empty then we can remove it
+		if minChunk.buffer.Len() == 0 {
+			isEmpty = true
+			err = createdChunks.shrink([]int{minIdx})
+			if err != nil {
+				return errors.Wrapf(err, "can't shrink chunk at index %d", minIdx)
+			}
+		}
+	}
+	// when we get a new element in the first chunk we need to re-order it
+	if !isEmpty {
+		createdChunks.moveFirstChunkToCorrectIndex()
+	}
+	return nil
+}
+
+func (f *Info) prepareMergeSort(output vector.Vector, chunkPaths []string, outputBufferSize int) (*chunks, error) {
+	err := f.handleHeader(output)
 	if err != nil {
-		return errors.Wrap(err, "can't create all chunks")
+		return nil, errors.Wrap(err, "can't handle headers")
+	}
+	// create a chunk per file path
+	createdChunks, err := f.createChunks(chunkPaths, outputBufferSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create all chunks")
 	}
 	f.outputWriter, err = f.Allocate.FnWriter(f.OutputFile)
 	if err != nil {
-		return errors.Wrap(err, "can't get output writer file")
+		return nil, errors.Wrap(err, "can't get output writer file")
 	}
-	defer f.outputWriter.Close()
+	return createdChunks, nil
+}
+
+func (f *Info) runMergeSort(createdChunks *chunks, output vector.Vector, outputBufferSize int, dropDuplicates bool) error {
 	bar := pb.StartNew(f.totalRows)
 	createdChunks.resetOrder()
+	smallestChunk := &nextChunk{}
 	for {
 		if f.PrintMemUsage {
 			f.mu.Collect()
 		}
-		if createdChunks.len() == 0 || output.Len() == k {
-			err = WriteBuffer(f.outputWriter, output)
-			if err != nil {
-				return err
-			}
+		err := f.dumpOutput(createdChunks, output, outputBufferSize)
+		if err != nil {
+			return errors.Wrap(err, "can't dump output")
 		}
 		if createdChunks.len() == 0 {
 			break
 		}
-		toShrink := []int{}
-		// search the smallest value across chunk buffers by comparing first elements only
-		minChunk, minValue, minIdx := createdChunks.min()
-		if (!dropDuplicates || oldElem == nil) || (dropDuplicates && !minValue.Key.Equal(oldElem.Key)) {
-			err = output.PushBack(minValue.Row)
-			if err != nil {
-				return errors.Wrapf(err, "can't push back row %+v", minValue.Row)
-			}
-			oldElem = minValue
-		}
 
-		// remove the first element from the chunk we pulled the smallest value
-		minChunk.buffer.FrontShift()
-		isEmpty := false
-		if minChunk.buffer.Len() == 0 {
-			err = minChunk.pullSubset(k)
-			if err != nil {
-				return err
-			}
-			// if after pulling data the chunk buffer is still empty then we can remove it
-			if minChunk.buffer.Len() == 0 {
-				isEmpty = true
-				toShrink = append(toShrink, minIdx)
-				err = createdChunks.shrink(toShrink)
-				if err != nil {
-					return err
-				}
-			}
+		// search the smallest value across chunk buffers by comparing first elements only
+		minChunk, minIdx, err := smallestChunk.get(output, createdChunks, dropDuplicates)
+		if err != nil {
+			return errors.Wrap(err, "can't get next chunk with smallest value")
 		}
-		// when we get a new element in the first chunk we need to re-order it
-		if !isEmpty {
-			createdChunks.moveFirstChunkToCorrectIndex()
+		// remove the first element from the chunk we pulled the smallest value
+		err = updateChunks(createdChunks, minChunk, minIdx, outputBufferSize)
+		if err != nil {
+			return errors.Wrap(err, "can't update chunks")
 		}
 		bar.Increment()
 	}
@@ -131,10 +154,43 @@ func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err e
 	if f.PrintMemUsage {
 		logger.Debugln(f.mu.String())
 	}
-	return createdChunks.close()
+	return nil
 }
 
-func WriteBuffer(w writer.Writer, rows vector.Vector) error {
+func (f *Info) dumpOutput(createdChunks *chunks, output vector.Vector, outputBufferSize int) error {
+	if createdChunks.len() == 0 || output.Len() == outputBufferSize {
+		err := writeBuffer(f.outputWriter, output)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MergeSort merge and sort a list of files.
+// It is possilbe to drop duplicates and define the maximum size of the output buffer before flush.
+func (f *Info) MergeSort(chunkPaths []string, outputBufferSize int, dropDuplicates bool) (err error) {
+	output := f.Allocate.Vector(outputBufferSize, f.Allocate.Key)
+	if f.PrintMemUsage && f.mu == nil {
+		f.mu = &memUsage{}
+	}
+	createdChunks, err := f.prepareMergeSort(output, chunkPaths, outputBufferSize)
+	if err != nil {
+		return errors.Wrap(err, "can't prepare merge sort")
+	}
+	defer func() { err = f.outputWriter.Close() }()
+	err = f.runMergeSort(createdChunks, output, outputBufferSize, dropDuplicates)
+	if err != nil {
+		return errors.Wrap(err, "can't run merge sort")
+	}
+	err = createdChunks.close()
+	if err != nil {
+		return errors.Wrap(err, "can't close created chunks")
+	}
+	return err
+}
+
+func writeBuffer(w writer.Writer, rows vector.Vector) error {
 	for i := 0; i < rows.Len(); i++ {
 		err := w.Write(rows.Get(i).Row)
 		if err != nil {

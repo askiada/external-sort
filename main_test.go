@@ -19,31 +19,41 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func prepareChunks(ctx context.Context, t *testing.T, allocate *vector.Allocate, filename, outputFilename string, chunkSize int, mergeSort bool, bufferSize int, withHeaders bool, dropDuplicates bool) *file.Info {
+func prepareChunks(
+	ctx context.Context,
+	t *testing.T,
+	allocate *vector.Allocate,
+	filename, outputFilename string,
+	chunkSize int,
+	mergeSort bool,
+	bufferSize int,
+	withHeaders bool,
+	dropDuplicates bool,
+) *file.Info {
 	t.Helper()
-	i := rw.NewInputOutput(ctx)
-	err := i.SetInputReader(ctx, filename)
+	inputOutput := rw.NewInputOutput(ctx)
+	err := inputOutput.SetInputReader(ctx, filename)
 	assert.NoError(t, err)
-	err = i.SetOutputWriter(ctx, outputFilename)
+	err = inputOutput.SetOutputWriter(ctx, outputFilename)
 	assert.NoError(t, err)
-	fI := &file.Info{
-		InputReader: i.Input,
+	fileInfo := &file.Info{
+		InputReader: inputOutput.Input,
 		Allocate:    allocate,
-		OutputFile:  i.Output,
+		OutputFile:  inputOutput.Output,
 		WithHeader:  withHeaders,
 	}
-	i.Do(func() (err error) {
-		chunkPaths, err := fI.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
+	inputOutput.Do(func() (err error) {
+		chunkPaths, err := fileInfo.CreateSortedChunks(ctx, "testdata/chunks", chunkSize, 10)
 		assert.NoError(t, err)
 		if mergeSort {
-			return fI.MergeSort(chunkPaths, bufferSize, dropDuplicates)
+			return fileInfo.MergeSort(chunkPaths, bufferSize, dropDuplicates)
 		}
 		return nil
 	})
-	err = i.Err()
+	err = inputOutput.Err()
 	assert.NoError(t, err)
 
-	return fI
+	return fileInfo
 }
 
 func TestBasics(t *testing.T) {
@@ -102,7 +112,11 @@ func TestBasics(t *testing.T) {
 				t.Run(name+"_"+strconv.Itoa(chunkSize)+"_"+strconv.Itoa(bufferSize), func(t *testing.T) {
 					ctx := context.Background()
 
-					allocate := vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil })
+					allocate := vector.DefaultVector(
+						key.AllocateInt,
+						func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+						func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+					)
 					prepareChunks(ctx, t, allocate, filename, outputFilename, chunkSize, true, bufferSize, false, false)
 
 					outputFile, err := os.Open(outputFilename)
@@ -165,7 +179,11 @@ func Test100Elems(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			allocate := vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil })
+			allocate := vector.DefaultVector(
+				key.AllocateInt,
+				func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+				func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+			)
 			prepareChunks(ctx, t, allocate, filename, outputFilename, 21, true, 10, false, false)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -217,7 +235,11 @@ func Test100ElemsWithDuplicates(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			allocate := vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil })
+			allocate := vector.DefaultVector(
+				key.AllocateInt,
+				func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+				func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+			)
 			prepareChunks(ctx, t, allocate, filename, outputFilename, 21, true, 10, false, true)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -277,7 +299,11 @@ func Test100ElemsWithHeaders(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			allocate := vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil })
+			allocate := vector.DefaultVector(
+				key.AllocateInt,
+				func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+				func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+			)
 			prepareChunks(ctx, t, allocate, filename, outputFilename, 21, true, 10, true, false)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -329,7 +355,11 @@ func Test100ElemsWithHeadersWithDuplicates(t *testing.T) {
 		expectedErr := tc.expectedErr
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
-			allocate := vector.DefaultVector(key.AllocateInt, func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) }, func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil })
+			allocate := vector.DefaultVector(
+				key.AllocateInt,
+				func(r io.Reader) (reader.Reader, error) { return reader.NewStdScanner(r, false) },
+				func(w io.Writer) (writer.Writer, error) { return writer.NewStdWriter(w), nil },
+			)
 			prepareChunks(ctx, t, allocate, filename, outputFilename, 21, true, 10, true, true)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -380,9 +410,11 @@ func TestTsvKey(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 
-			allocate := vector.DefaultVector(func(row interface{}) (key.Key, error) {
-				return key.AllocateTsv(row, 1)
-			}, func(r io.Reader) (reader.Reader, error) { return reader.NewSeparatedValues(r, '\t'), nil }, func(w io.Writer) (writer.Writer, error) { return writer.NewSeparatedValues(w, '\t'), nil })
+			allocate := vector.DefaultVector(
+				func(row interface{}) (key.Key, error) { return key.AllocateTsv(row, 1) },
+				func(r io.Reader) (reader.Reader, error) { return reader.NewSeparatedValues(r, '\t'), nil },
+				func(w io.Writer) (writer.Writer, error) { return writer.NewSeparatedValues(w, '\t'), nil },
+			)
 			prepareChunks(ctx, t, allocate, filename, outputFilename, 21, true, 10, false, false)
 			outputFile, err := os.Open(outputFilename)
 			assert.NoError(t, err)
@@ -400,27 +432,37 @@ func TestTsvKey(t *testing.T) {
 	}
 }
 
-func prepareChunksShuffle(ctx context.Context, t *testing.T, filename, outputFilename string, chunkSize int, mergeSort bool, bufferSize int, withHeaders bool, dropDuplicates, isGzip bool) *file.Info {
+func prepareChunksShuffle(
+	ctx context.Context,
+	t *testing.T,
+	filename, outputFilename string,
+	chunkSize int,
+	mergeSort bool,
+	bufferSize int,
+	withHeaders bool,
+	dropDuplicates,
+	isGzip bool,
+) *file.Info {
 	t.Helper()
-	i := rw.NewInputOutput(ctx)
-	err := i.SetInputReader(ctx, filename)
+	inputOutput := rw.NewInputOutput(ctx)
+	err := inputOutput.SetInputReader(ctx, filename)
 	assert.NoError(t, err)
-	err = i.SetOutputWriter(ctx, outputFilename)
+	err = inputOutput.SetOutputWriter(ctx, outputFilename)
 	assert.NoError(t, err)
-	fI := &file.Info{
-		InputReader: i.Input,
-		OutputFile:  i.Output,
+	fileInfo := &file.Info{
+		InputReader: inputOutput.Input,
+		OutputFile:  inputOutput.Output,
 		WithHeader:  withHeaders,
 	}
-	i.Do(func() (err error) {
-		_, err = fI.Shuffle(ctx, "testdata/chunks", chunkSize, 10, bufferSize, 13, isGzip)
+	inputOutput.Do(func() (err error) {
+		_, err = fileInfo.Shuffle(ctx, "testdata/chunks", chunkSize, 10, bufferSize, 13, isGzip)
 		assert.NoError(t, err)
 		return nil
 	})
-	err = i.Err()
+	err = inputOutput.Err()
 	assert.NoError(t, err)
 
-	return fI
+	return fileInfo
 }
 
 func Test100ElemsShuffle(t *testing.T) {
