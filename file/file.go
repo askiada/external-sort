@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/askiada/external-sort/file/batchingchannels"
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/writer"
 	"github.com/sirupsen/logrus"
@@ -17,27 +18,116 @@ import (
 
 var logger = logrus.StandardLogger()
 
+// Info set all parameters to process a file with chunks.
 type Info struct {
-	mu            *MemUsage
-	Allocate      *vector.Allocate
-	InputReader   io.Reader
-	OutputFile    io.Writer
-	outputWriter  writer.Writer
+	mu           *memUsage
+	Allocate     *vector.Allocate
+	InputReader  io.Reader
+	OutputFile   io.Writer
+	outputWriter writer.Writer
+
+	headers       interface{}
+	chunkPaths    []string
+	localMutex    sync.Mutex
 	totalRows     int
+	chunkIndex    int
 	PrintMemUsage bool
 	WithHeader    bool
-	headers       interface{}
+}
+
+func (f *Info) check(dumpSize int) error {
+	f.chunkIndex = 0
+	f.chunkPaths = []string{}
+	if dumpSize <= 0 {
+		return errors.New("dump size must be greater than 0")
+	}
+	return nil
+}
+
+func (f *Info) processInputReader(batchChan *batchingchannels.BatchingChannel, inputReader reader.Reader) error {
+	for inputReader.Next() {
+		if f.PrintMemUsage {
+			f.mu.Collect()
+		}
+		row, err := inputReader.Read()
+		if err != nil {
+			return errors.Wrap(err, "can't read from input reader")
+		}
+		if f.WithHeader && f.headers == nil {
+			f.headers = row
+		} else {
+			batchChan.In() <- row
+		}
+		f.totalRows++
+	}
+	batchChan.Close()
+	if inputReader.Err() != nil {
+		return errors.Wrap(inputReader.Err(), "input reader encountered an error")
+	}
+	return nil
+}
+
+func (f *Info) processBatch(vec vector.Vector, chunkFolder string) error {
+	f.localMutex.Lock()
+	f.chunkIndex++
+	chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(f.chunkIndex)+".tsv")
+	logger.Infoln("Created chunk", chunkPath)
+	f.localMutex.Unlock()
+	vec.Sort()
+	if f.WithHeader {
+		f.localMutex.Lock()
+		err := vec.PushFrontNoKey(f.headers)
+		if err != nil {
+			f.localMutex.Unlock()
+			return err
+		}
+		f.localMutex.Unlock()
+	}
+	err := f.Allocate.Dump(vec, chunkPath)
+	if err != nil {
+		return errors.Wrapf(err, "can't dump chunk %s", chunkPath)
+	}
+	f.localMutex.Lock()
+	f.chunkPaths = append(f.chunkPaths, chunkPath)
+	f.localMutex.Unlock()
+	return nil
+}
+
+func (f *Info) runBatchingChannel(
+	ctx context.Context,
+	inputReader reader.Reader,
+	chunkFolder string,
+	dumpSize,
+	maxWorkers int,
+) ([]string, error) {
+	batchChan, err := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create new batching channel")
+	}
+	batchChan.G.Go(func() error { return f.processInputReader(batchChan, inputReader) })
+
+	err = batchChan.ProcessOut(func(vec vector.Vector) error {
+		err := f.processBatch(vec, chunkFolder)
+		if err != nil {
+			return errors.Wrap(err, "can't process batch")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "can't process batching channel")
+	}
+	return f.chunkPaths, nil
 }
 
 // CreateSortedChunks Scan a file and divide it into small sorted chunks.
 // Store all the chunks in a folder an returns all the paths.
 func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpSize, maxWorkers int) ([]string, error) {
-	if dumpSize <= 0 {
-		return nil, errors.New("dump size must be greater than 0")
+	if err := f.check(dumpSize); err != nil {
+		return nil, errors.New("can't pass checks")
 	}
 
 	if f.PrintMemUsage && f.mu == nil {
-		f.mu = &MemUsage{}
+		f.mu = &memUsage{}
 	}
 
 	err := clearChunkFolder(chunkFolder)
@@ -49,67 +139,9 @@ func (f *Info) CreateSortedChunks(ctx context.Context, chunkFolder string, dumpS
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get input reader")
 	}
-	countRows := 0
-	chunkPaths := []string{}
-
-	mu := sync.Mutex{}
-
-	batchChan, err := batchingchannels.NewBatchingChannel(ctx, f.Allocate, maxWorkers, dumpSize)
+	chunkPaths, err := f.runBatchingChannel(ctx, inputReader, chunkFolder, dumpSize, maxWorkers)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create new batching channel")
+		return nil, errors.Wrap(err, "can't run batching channel")
 	}
-	batchChan.G.Go(func() error {
-		for inputReader.Next() {
-			if f.PrintMemUsage {
-				f.mu.Collect()
-			}
-			row, err := inputReader.Read()
-			if err != nil {
-				return errors.Wrap(err, "can't read from input reader")
-			}
-			if f.WithHeader && f.headers == nil {
-				f.headers = row
-			} else {
-				batchChan.In() <- row
-			}
-			countRows++
-		}
-		batchChan.Close()
-		if inputReader.Err() != nil {
-			return errors.Wrap(inputReader.Err(), "input reader encountered an error")
-		}
-		return nil
-	})
-
-	chunkIdx := 0
-	err = batchChan.ProcessOut(func(v vector.Vector) error {
-		mu.Lock()
-		chunkIdx++
-		chunkPath := path.Join(chunkFolder, "chunk_"+strconv.Itoa(chunkIdx)+".tsv")
-		logger.Infoln("Created chunk", chunkPath)
-		mu.Unlock()
-		v.Sort()
-		if f.WithHeader {
-			mu.Lock()
-			err = v.PushFrontNoKey(f.headers)
-			if err != nil {
-				mu.Unlock()
-				return err
-			}
-			mu.Unlock()
-		}
-		err := f.Allocate.Dump(v, chunkPath)
-		if err != nil {
-			return err
-		}
-		mu.Lock()
-		chunkPaths = append(chunkPaths, chunkPath)
-		mu.Unlock()
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "can't process batching channel")
-	}
-	f.totalRows = countRows
 	return chunkPaths, nil
 }

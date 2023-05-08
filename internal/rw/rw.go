@@ -32,6 +32,7 @@ type InputOutput struct {
 
 func NewInputOutput(ctx context.Context) *InputOutput {
 	g, dCtx := errgroup.WithContext(ctx)
+
 	return &InputOutput{
 		g:           g,
 		internalCtx: dCtx,
@@ -50,6 +51,7 @@ func (i *InputOutput) s3Check(ctx context.Context) error {
 		return errors.New("can't create aws config")
 	}
 	i.s3Client = s3.NewFromConfig(cfg)
+
 	return nil
 }
 
@@ -92,7 +94,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 	} else {
 		var files []io.Reader
 		for _, inputFile := range inputFiles {
-			f, err := os.Open(inputFile)
+			f, err := os.Open(filepath.Clean(inputFile))
 			if err != nil {
 				return errors.Wrapf(err, "can't open file %s", inputFile)
 			}

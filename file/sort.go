@@ -11,26 +11,26 @@ import (
 	"github.com/pkg/errors"
 )
 
-type MemUsage struct {
+type memUsage struct {
 	MaxAlloc uint64
 	MaxSys   uint64
 	NumGc    uint32
 }
 
-func (mu *MemUsage) Collect() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	if m.Alloc > mu.MaxAlloc {
-		mu.MaxAlloc = m.Alloc
+func (mu *memUsage) Collect() {
+	var mStats runtime.MemStats
+	runtime.ReadMemStats(&mStats)
+	if mStats.Alloc > mu.MaxAlloc {
+		mu.MaxAlloc = mStats.Alloc
 	}
-	if m.Sys > mu.MaxSys {
-		mu.MaxSys = m.Sys
+	if mStats.Sys > mu.MaxSys {
+		mu.MaxSys = mStats.Sys
 	}
 
-	mu.NumGc = m.NumGC
+	mu.NumGc = mStats.NumGC
 }
 
-func (mu *MemUsage) String() string {
+func (mu *memUsage) String() string {
 	builder := strings.Builder{}
 	builder.WriteString(fmt.Sprintf("Max Alloc = %v MiB", bToMb(mu.MaxAlloc)))
 	builder.WriteString(fmt.Sprintf(" Max Sys = %v MiB", bToMb(mu.MaxSys)))
@@ -38,57 +38,67 @@ func (mu *MemUsage) String() string {
 	return builder.String()
 }
 
+const conversionMb = (1 << 20) //nolint
+
 func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
+	return b / conversionMb
+}
+
+func (f *Info) createChunks(chunkPaths []string, k int) (*chunks, error) {
+	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
+	for _, chunkPath := range chunkPaths {
+		err := chunks.new(chunkPath, f.Allocate, k, f.WithHeader)
+		if err != nil {
+			return nil, errors.Wrapf(err, "can't create chunk %s", chunkPath)
+		}
+	}
+	return chunks, nil
 }
 
 func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err error) {
 	var oldElem *vector.Element
 	output := f.Allocate.Vector(k, f.Allocate.Key)
 	if f.PrintMemUsage && f.mu == nil {
-		f.mu = &MemUsage{}
+		f.mu = &memUsage{}
 	}
 	if f.WithHeader {
 		err = output.PushFrontNoKey(f.headers)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't add headers %+v", f.headers)
 		}
 	}
 	// create a chunk per file path
-	chunks := &chunks{list: make([]*chunkInfo, 0, len(chunkPaths))}
-	for _, chunkPath := range chunkPaths {
-		err := chunks.new(chunkPath, f.Allocate, k, f.WithHeader)
-		if err != nil {
-			return err
-		}
+	createdChunks, err := f.createChunks(chunkPaths, k)
+	if err != nil {
+		return errors.Wrap(err, "can't create all chunks")
 	}
 	f.outputWriter, err = f.Allocate.FnWriter(f.OutputFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't get output writer file")
 	}
 	defer f.outputWriter.Close()
 	bar := pb.StartNew(f.totalRows)
-	chunks.resetOrder()
+	createdChunks.resetOrder()
 	for {
 		if f.PrintMemUsage {
 			f.mu.Collect()
 		}
-		if chunks.len() == 0 || output.Len() == k {
+		if createdChunks.len() == 0 || output.Len() == k {
 			err = WriteBuffer(f.outputWriter, output)
 			if err != nil {
 				return err
 			}
 		}
-		if chunks.len() == 0 {
+		if createdChunks.len() == 0 {
 			break
 		}
 		toShrink := []int{}
 		// search the smallest value across chunk buffers by comparing first elements only
-		minChunk, minValue, minIdx := chunks.min()
+		minChunk, minValue, minIdx := createdChunks.min()
 		if (!dropDuplicates || oldElem == nil) || (dropDuplicates && !minValue.Key.Equal(oldElem.Key)) {
 			err = output.PushBack(minValue.Row)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "can't push back row %+v", minValue.Row)
 			}
 			oldElem = minValue
 		}
@@ -105,7 +115,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err e
 			if minChunk.buffer.Len() == 0 {
 				isEmpty = true
 				toShrink = append(toShrink, minIdx)
-				err = chunks.shrink(toShrink)
+				err = createdChunks.shrink(toShrink)
 				if err != nil {
 					return err
 				}
@@ -113,7 +123,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err e
 		}
 		// when we get a new element in the first chunk we need to re-order it
 		if !isEmpty {
-			chunks.moveFirstChunkToCorrectIndex()
+			createdChunks.moveFirstChunkToCorrectIndex()
 		}
 		bar.Increment()
 	}
@@ -121,7 +131,7 @@ func (f *Info) MergeSort(chunkPaths []string, k int, dropDuplicates bool) (err e
 	if f.PrintMemUsage {
 		logger.Debugln(f.mu.String())
 	}
-	return chunks.close()
+	return createdChunks.close()
 }
 
 func WriteBuffer(w writer.Writer, rows vector.Vector) error {

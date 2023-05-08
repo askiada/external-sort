@@ -50,20 +50,83 @@ func newCommand() *command {
 			RunE: shuffleRun,
 		},
 	}
-	root.rootCmd.PersistentFlags().BoolVarP(&internal.WithHeader, internal.WithHeaderName, "e", viper.GetBool(internal.WithHeaderName), "Input file has headers.")
-	root.rootCmd.PersistentFlags().StringSliceVarP(&internal.InputFiles, internal.InputFileNames, "i", viper.GetStringSlice(internal.InputFileNames), "input file path.")
-	root.rootCmd.PersistentFlags().StringVarP(&internal.OutputFile, internal.OutputFileName, "o", viper.GetString(internal.OutputFileName), "output file path.")
-	root.rootCmd.PersistentFlags().StringVarP(&internal.ChunkFolder, internal.ChunkFolderName, "c", viper.GetString(internal.ChunkFolderName), "chunk folder.")
+	root.rootCmd.PersistentFlags().BoolVarP(
+		&internal.WithHeader,
+		internal.WithHeaderName,
+		"e",
+		viper.GetBool(internal.WithHeaderName),
+		"Input file has headers.",
+	)
+	root.rootCmd.PersistentFlags().StringSliceVarP(
+		&internal.InputFiles,
+		internal.InputFileNames,
+		"i",
+		viper.GetStringSlice(internal.InputFileNames),
+		"input file path.",
+	)
+	root.rootCmd.PersistentFlags().StringVarP(
+		&internal.OutputFile,
+		internal.OutputFileName,
+		"o",
+		viper.GetString(internal.OutputFileName),
+		"output file path.",
+	)
+	root.rootCmd.PersistentFlags().StringVarP(
+		&internal.ChunkFolder,
+		internal.ChunkFolderName,
+		"c",
+		viper.GetString(internal.ChunkFolderName),
+		"chunk folder.",
+	)
 
-	root.rootCmd.PersistentFlags().IntVarP(&internal.ChunkSize, internal.ChunkSizeName, "s", viper.GetInt(internal.ChunkSizeName), "chunk size.")
-	root.rootCmd.PersistentFlags().IntVarP(&internal.MaxWorkers, internal.MaxWorkersName, "w", viper.GetInt(internal.MaxWorkersName), "max worker.")
-	root.rootCmd.PersistentFlags().IntVarP(&internal.OutputBufferSize, internal.OutputBufferSizeName, "b", viper.GetInt(internal.OutputBufferSizeName), "output buffer size.")
-	root.sortCmd.PersistentFlags().StringSliceVarP(&internal.TsvFields, internal.TsvFieldsName, "t", viper.GetStringSlice(internal.TsvFieldsName), "")
+	root.rootCmd.PersistentFlags().IntVarP(
+		&internal.ChunkSize,
+		internal.ChunkSizeName,
+		"s",
+		viper.GetInt(internal.ChunkSizeName),
+		"chunk size.",
+	)
+	root.rootCmd.PersistentFlags().IntVarP(
+		&internal.MaxWorkers,
+		internal.MaxWorkersName,
+		"w",
+		viper.GetInt(internal.MaxWorkersName),
+		"max worker.",
+	)
+	root.rootCmd.PersistentFlags().IntVarP(
+		&internal.OutputBufferSize,
+		internal.OutputBufferSizeName,
+		"b",
+		viper.GetInt(internal.OutputBufferSizeName),
+		"output buffer size.",
+	)
+	root.sortCmd.PersistentFlags().StringSliceVarP(
+		&internal.TsvFields,
+		internal.TsvFieldsName,
+		"t",
+		viper.GetStringSlice(internal.TsvFieldsName),
+		"",
+	)
 
-	root.rootCmd.Flags().StringVar(&internal.S3Region, internal.S3RegionName, viper.GetString(internal.S3RegionName), "the bucket region")
-	root.rootCmd.Flags().IntVar(&internal.S3RetryMaxAttempts, internal.S3RetryMaxAttemptsName, viper.GetInt(internal.S3RetryMaxAttemptsName), "the number of retries per S3 request before failing")
+	root.rootCmd.Flags().StringVar(
+		&internal.S3Region,
+		internal.S3RegionName,
+		viper.GetString(internal.S3RegionName),
+		"the bucket region",
+	)
+	root.rootCmd.Flags().IntVar(
+		&internal.S3RetryMaxAttempts,
+		internal.S3RetryMaxAttemptsName,
+		viper.GetInt(internal.S3RetryMaxAttemptsName),
+		"the number of retries per S3 request before failing",
+	)
 
-	root.shuffleCmd.PersistentFlags().BoolVarP(&internal.IsGzip, internal.IsGzipName, "t", viper.GetBool(internal.IsGzipName), "")
+	root.shuffleCmd.PersistentFlags().BoolVarP(&internal.IsGzip,
+		internal.IsGzipName,
+		"t",
+		viper.GetBool(internal.IsGzipName),
+		"",
+	)
 
 	root.rootCmd.AddCommand(root.sortCmd, root.shuffleCmd)
 	return root

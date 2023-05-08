@@ -56,7 +56,7 @@ func (b *Basic) Begin(total int64) {
 // Add increment the bar by n elements.
 func (b *Basic) Add(val int64) {
 	b.written += float64(val)
-	progress := int(math.Round(b.written / b.total * 100))
+	progress := int(math.Round(b.written / b.total * 100)) //nolint //gomnd
 	if progress >= b.milestone {
 		b.milestone += 5 // every 5%
 		logrus.Debugf("Download from S3 at %3d%%\n\n", progress)

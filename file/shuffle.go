@@ -1,3 +1,5 @@
+// TODO: rework + lint
+//nolint
 package file
 
 import (
@@ -25,7 +27,7 @@ func (f *Info) Shuffle(ctx context.Context, chunkFolder string, dumpSize, maxWor
 	}
 
 	if f.PrintMemUsage && f.mu == nil {
-		f.mu = &MemUsage{}
+		f.mu = &memUsage{}
 	}
 	if f.Allocate != nil {
 		return nil, errors.New("allocate should not be defined when shuffling")

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path"
 	"strconv"
 	"testing"
 
@@ -43,14 +42,6 @@ func prepareChunks(ctx context.Context, t *testing.T, allocate *vector.Allocate,
 	})
 	err = i.Err()
 	assert.NoError(t, err)
-	t.Cleanup(func() {
-		dir, err := os.ReadDir("testdata/chunks")
-		assert.NoError(t, err)
-		for _, d := range dir {
-			err = os.RemoveAll(path.Join("testdata/chunks", d.Name()))
-			assert.NoError(t, err)
-		}
-	})
 
 	return fI
 }
@@ -428,14 +419,6 @@ func prepareChunksShuffle(ctx context.Context, t *testing.T, filename, outputFil
 	})
 	err = i.Err()
 	assert.NoError(t, err)
-	t.Cleanup(func() {
-		dir, err := os.ReadDir("testdata/chunks")
-		assert.NoError(t, err)
-		for _, d := range dir {
-			err = os.RemoveAll(path.Join("testdata/chunks", d.Name()))
-			assert.NoError(t, err)
-		}
-	})
 
 	return fI
 }

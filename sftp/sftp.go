@@ -3,6 +3,7 @@ package sftp
 import (
 	"io/ioutil"
 	"log"
+	"path/filepath"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -15,7 +16,7 @@ type Client struct {
 
 func NewSFTPClient(addr, key, user, passphrase string) (*Client, error) {
 	res := &Client{}
-	pemBytes, err := ioutil.ReadFile(key)
+	pemBytes, err := ioutil.ReadFile(filepath.Clean(key))
 	if err != nil {
 		log.Fatal(err)
 	}

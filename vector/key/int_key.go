@@ -17,17 +17,17 @@ func AllocateInt(row interface{}) (Key, error) {
 	}
 	num, err := strconv.Atoi(line)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "can't convert line %s to int", line)
 	}
 	return &Int{num}, nil
 }
 
 func (k *Int) Less(other Key) bool {
-	return k.value < other.(*Int).value
+	return k.value < other.(*Int).value //nolint //forcetypeassert
 }
 
 func (k *Int) Equal(other Key) bool {
-	return k.value == other.(*Int).value
+	return k.value == other.(*Int).value //nolint //forcetypeassert
 }
 
 type IntFromSlice struct {
@@ -41,15 +41,15 @@ func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) {
 	}
 	num, err := strconv.ParseInt(line[intIndex], 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "can't parse int %+v", line[intIndex])
 	}
 	return &IntFromSlice{num}, nil
 }
 
 func (k *IntFromSlice) Less(other Key) bool {
-	return k.value < other.(*IntFromSlice).value
+	return k.value < other.(*IntFromSlice).value //nolint //forcetypeassert
 }
 
 func (k *IntFromSlice) Equal(other Key) bool {
-	return k.value == other.(*IntFromSlice).value
+	return k.value == other.(*IntFromSlice).value //nolint //forcetypeassert
 }

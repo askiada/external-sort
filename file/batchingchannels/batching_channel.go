@@ -22,6 +22,7 @@ type BatchingChannel struct {
 	maxWorker       int
 }
 
+// NewBatchingChannel create a batching channel.
 func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker, size int) (*BatchingChannel, error) {
 	if size == 0 {
 		return nil, errors.New("does not support unbuffered behaviour")
@@ -41,9 +42,11 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 		internalContext: errGrpContext,
 	}
 	go bChan.batchingBuffer()
+
 	return bChan, nil
 }
 
+// In add element to input channel.
 func (ch *BatchingChannel) In() chan<- interface{} {
 	return ch.input
 }
@@ -55,6 +58,7 @@ func (ch *BatchingChannel) Out() <-chan vector.Vector {
 	return ch.output
 }
 
+// ProcessOut process specified function on each batch.
 func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	for val := range ch.Out() {
 		val := val
@@ -69,18 +73,23 @@ func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	return nil
 }
 
+// Len return the maximum number of elements in a batch.
 func (ch *BatchingChannel) Len() int {
 	return ch.size
 }
 
+// Cap return the maximum capacity of a batch.
 func (ch *BatchingChannel) Cap() int {
 	return ch.size
 }
 
+// Close close the input channel.
 func (ch *BatchingChannel) Close() {
 	close(ch.input)
 }
 
+// batchingBuffer add input element to the next batch available.
+// When the batch reach maximum size or the input channel is closed, it is passed to the output channel.
 func (ch *BatchingChannel) batchingBuffer() {
 	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 	for {

@@ -9,11 +9,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// StdWriter implement writer interface with a bufio writer.
 type StdWriter struct {
 	w *bufio.Writer
 }
 
-func NewStdWriter(w io.Writer) Writer {
+// NewStdWriter create a standard writer.
+func NewStdWriter(w io.Writer) Writer { //nolint //ireturn
 	s := &StdWriter{
 		w: bufio.NewWriter(w),
 	}
