@@ -1,0 +1,38 @@
+// (-- api-linter: core::0215::versioned-packages=disabled
+//     aip.dev/not-precedent: This simply makes the structure simpler --)
+syntax = "proto3";
+
+package bk.registration.orchestrator;
+
+option go_package = "github.com/askiada/external-sort/grpc/_build/go";
+
+
+service ExternalSort {
+    rpc SortSV(SortSVRequest) returns (SortSVResponse);
+}
+
+message FileSV {
+    string path = 1;
+    bool gzip = 2;
+    string separator = 3;
+    repeated Field sort_fields = 4;
+    bool with_input_header = 5;
+    
+}
+
+
+message SortSVRequest {
+
+    repeated FileSV input = 2;
+      
+}
+
+message Field {
+    enum FIELD_TYPE{
+        INT = 0;
+        STRING = 1;
+        BOOL = 2; 
+     }
+    int64 index =1;
+    FIELD_TYPE type =2; 
+}
