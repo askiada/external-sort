@@ -1,19 +1,20 @@
 package file
 
 import (
-	"bufio"
 	"os"
+	"path/filepath"
 	"sort"
 
+	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 
 	"github.com/pkg/errors"
 )
 
-// chunkInfo Describe a chunk.
+// chunkInfo define a chunk.
 type chunkInfo struct {
 	file     *os.File
-	scanner  *bufio.Scanner
+	reader   reader.Reader
 	buffer   vector.Vector
 	filename string
 }
@@ -21,15 +22,22 @@ type chunkInfo struct {
 // pullSubset Add to vector the specified number of elements.
 // It stops if there is no elements left to add.
 func (c *chunkInfo) pullSubset(size int) (err error) {
-	i := 0
-	for i < size && c.scanner.Scan() {
-		text := c.scanner.Text()
-		c.buffer.PushBack(text)
-		i++
+	elemIdx := 0
+	for elemIdx < size && c.reader.Next() {
+		row, err := c.reader.Read()
+		if err != nil {
+			return errors.Wrap(err, "can't read chunk")
+		}
+		err = c.buffer.PushBack(row)
+		if err != nil {
+			return errors.Wrap(err, "can't push back row")
+		}
+		elemIdx++
 	}
-	if c.scanner.Err() != nil {
-		return c.scanner.Err()
+	if c.reader.Err() != nil {
+		return errors.Wrap(c.reader.Err(), "chunk reader encountered an error")
 	}
+
 	return nil
 }
 
@@ -38,22 +46,30 @@ type chunks struct {
 	list []*chunkInfo
 }
 
-// new Create a new chunk and initialize it.
-func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int) error {
-	f, err := os.Open(chunkPath)
+// new Create a new chunk and initialise it.
+func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, withHeader bool) error {
+	chunkFile, err := os.Open(filepath.Clean(chunkPath))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't open chunk file")
 	}
-	scanner := bufio.NewScanner(f)
+	rder, err := allocate.FnReader(chunkFile)
+	if err != nil {
+		return errors.Wrap(err, "can't read chunk file")
+	}
+
+	if withHeader {
+		rder.Next()
+	}
+
 	elem := &chunkInfo{
 		filename: chunkPath,
-		file:     f,
-		scanner:  scanner,
+		file:     chunkFile,
+		reader:   rder,
 		buffer:   allocate.Vector(size, allocate.Key),
 	}
 	err = elem.pullSubset(size)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't pull chunk subset")
 	}
 	c.list = append(c.list, elem)
 	return nil
@@ -64,7 +80,7 @@ func (c *chunks) close() error {
 	for _, chunk := range c.list {
 		err := chunk.file.Close()
 		if err != nil {
-			return errors.Wrap(err, "close")
+			return errors.Wrapf(err, "can't close chunk file %s", chunk.filename)
 		}
 	}
 	return nil
@@ -77,11 +93,11 @@ func (c *chunks) shrink(toShrink []int) error {
 		shrinkIndex -= i
 		err := c.list[shrinkIndex].file.Close()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't close chunk file %s", c.list[shrinkIndex].filename)
 		}
 		err = os.Remove(c.list[shrinkIndex].filename)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "can't remove chunk file %s", c.list[shrinkIndex].filename)
 		}
 		// we want to preserve order
 		c.list = append(c.list[:shrinkIndex], c.list[shrinkIndex+1:]...)
@@ -111,7 +127,7 @@ func (c *chunks) moveFirstChunkToCorrectIndex() {
 	pos := sort.Search(len(c.list), func(i int) bool {
 		return !vector.Less(c.list[i].buffer.Get(0), elem.buffer.Get(0))
 	})
-	// TODO: c.list = c.list[1:] and the following line create an unecessary allocation.
+	// TODO: c.list = c.list[1:] and the following line create an unnecessary allocation.
 	c.list = append(c.list[:pos], append([]*chunkInfo{elem}, c.list[pos:]...)...)
 }
 

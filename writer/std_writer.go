@@ -1,0 +1,92 @@
+package writer
+
+import (
+	"bufio"
+	"compress/gzip"
+	"io"
+	"strings"
+
+	"github.com/pkg/errors"
+)
+
+// StdWriter implement writer interface with a bufio writer.
+type StdWriter struct {
+	w *bufio.Writer
+}
+
+// NewStdWriter create a standard writer.
+func NewStdWriter(w io.Writer) Writer { //nolint //ireturn
+	s := &StdWriter{
+		w: bufio.NewWriter(w),
+	}
+	return s
+}
+
+func (w *StdWriter) Write(elem interface{}) error {
+	line, ok := elem.(string)
+	if !ok {
+		return errors.Errorf("can't converte interface{} to string: %+v", elem)
+	}
+	_, err := w.w.WriteString(line + "\n")
+	if err != nil {
+		return errors.Wrap(err, "can't write string")
+	}
+	return err
+}
+
+// Close close the bufio writer. It is the responsibility of the client to close the underlying writer.
+func (w *StdWriter) Close() error {
+	err := w.w.Flush()
+	if err != nil {
+		return errors.Wrap(err, "can't close writer")
+	}
+	return nil
+}
+
+type StdSliceWriter struct {
+	skipFirst bool
+	w         *bufio.Writer
+	gw        *gzip.Writer
+}
+
+func NewStdSliceWriter(w io.Writer, skipFirst, isGzip bool) Writer {
+	var newR *bufio.Writer
+	ssw := &StdSliceWriter{
+		skipFirst: skipFirst,
+	}
+	if isGzip {
+		ssw.gw = gzip.NewWriter(w)
+		newR = bufio.NewWriter(ssw.gw)
+	} else {
+		newR = bufio.NewWriter(w)
+	}
+	ssw.w = newR
+	return ssw
+}
+
+func (w *StdSliceWriter) Write(elem interface{}) error {
+	line, ok := elem.([]string)
+	if !ok {
+		return errors.Errorf("can't converte interface{} to string: %+v", elem)
+	}
+	if w.skipFirst {
+		line = line[1:]
+	}
+	_, err := w.w.WriteString(strings.Join(line, "##!!##") + "\n")
+	if err != nil {
+		return errors.Wrap(err, "can't write string")
+	}
+	return err
+}
+
+// Close close the bufio writer. It is the responsibility of the client to close the underlying writer.
+func (w *StdSliceWriter) Close() (err error) {
+	if w.gw != nil {
+		defer func() { err = w.gw.Close() }()
+	}
+	err = w.w.Flush()
+	if err != nil {
+		return errors.Wrap(err, "can't close writer")
+	}
+	return err
+}

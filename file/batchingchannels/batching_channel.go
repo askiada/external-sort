@@ -4,48 +4,50 @@ import (
 	"context"
 
 	"github.com/askiada/external-sort/vector"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
-// BatchingChannel implements the Channel interface, with the change that instead of producing individual elements
-// on Out(), it batches together the entire internal buffer each time. Trying to construct an unbuffered batching channel
+// BatchingChannel define a standard channel, with the change that instead of producing individual elements
+// on Out(), it batches together n elements each time. Trying to construct an unbuffered batching channel
 // will panic, that configuration is not supported (and provides no benefit over an unbuffered NativeChannel).
 type BatchingChannel struct {
-	input     chan string
-	output    chan vector.Vector
-	buffer    vector.Vector
-	allocate  *vector.Allocate
-	g         *errgroup.Group
-	sem       *semaphore.Weighted
-	dCtx      context.Context
-	size      int
-	maxWorker int64
+	input           chan interface{}
+	output          chan vector.Vector
+	buffer          vector.Vector
+	allocate        *vector.Allocate
+	G               *errgroup.Group
+	internalContext context.Context //nolint //containedcontext
+	size            int
+	maxWorker       int
 }
 
-func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker int64, size int) *BatchingChannel {
+// NewBatchingChannel create a batching channel.
+func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorker, size int) (*BatchingChannel, error) {
 	if size == 0 {
-		panic("channels: BatchingChannel does not support unbuffered behaviour")
+		return nil, errors.New("does not support unbuffered behaviour")
 	}
 	if size < 0 {
-		panic("channels: invalid negative size in NewBatchingChannel")
+		return nil, errors.New("does not support negative size")
 	}
-	g, dCtx := errgroup.WithContext(ctx)
-	ch := &BatchingChannel{
-		input:     make(chan string),
-		output:    make(chan vector.Vector),
-		size:      size,
-		allocate:  allocate,
-		maxWorker: maxWorker,
-		g:         g,
-		sem:       semaphore.NewWeighted(maxWorker),
-		dCtx:      dCtx,
+	errGrp, errGrpContext := errgroup.WithContext(ctx)
+	errGrp.SetLimit(maxWorker)
+	bChan := &BatchingChannel{
+		input:           make(chan interface{}),
+		output:          make(chan vector.Vector),
+		size:            size,
+		allocate:        allocate,
+		maxWorker:       maxWorker,
+		G:               errGrp,
+		internalContext: errGrpContext,
 	}
-	go ch.batchingBuffer()
-	return ch
+	go bChan.batchingBuffer()
+
+	return bChan, nil
 }
 
-func (ch *BatchingChannel) In() chan<- string {
+// In add element to input channel.
+func (ch *BatchingChannel) In() chan<- interface{} {
 	return ch.input
 }
 
@@ -56,51 +58,55 @@ func (ch *BatchingChannel) Out() <-chan vector.Vector {
 	return ch.output
 }
 
+// ProcessOut process specified function on each batch.
 func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	for val := range ch.Out() {
-		if err := ch.sem.Acquire(ch.dCtx, 1); err != nil {
-			return err
-		}
 		val := val
-		ch.g.Go(func() error {
-			defer ch.sem.Release(1)
+		ch.G.Go(func() error {
 			return f(val)
 		})
 	}
-	err := ch.g.Wait()
+	err := ch.G.Wait()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "one of the task failed")
 	}
+
 	return nil
 }
 
+// Len return the maximum number of elements in a batch.
 func (ch *BatchingChannel) Len() int {
 	return ch.size
 }
 
+// Cap return the maximum capacity of a batch.
 func (ch *BatchingChannel) Cap() int {
 	return ch.size
 }
 
+// Close close the input channel.
 func (ch *BatchingChannel) Close() {
 	close(ch.input)
 }
 
+// batchingBuffer add input element to the next batch available.
+// When the batch reach maximum size or the input channel is closed, it is passed to the output channel.
 func (ch *BatchingChannel) batchingBuffer() {
 	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
 	for {
-		elem, open := <-ch.input
+		row, open := <-ch.input
 		if open {
-			err := ch.buffer.PushBack(elem)
+			err := ch.buffer.PushBack(row)
 			if err != nil {
-				ch.g.Go(func() error {
-					return err
+				ch.G.Go(func() error {
+					return errors.Wrap(err, "can't push back row")
 				})
 			}
 		} else {
 			if ch.buffer.Len() > 0 {
 				ch.output <- ch.buffer
 			}
+
 			break
 		}
 		if ch.buffer.Len() == ch.size {

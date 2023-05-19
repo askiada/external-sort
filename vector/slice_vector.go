@@ -8,7 +8,7 @@ import (
 
 var _ Vector = &SliceVec{}
 
-func AllocateSlice(size int, allocateKey func(line string) (key.Key, error)) Vector {
+func AllocateSlice(size int, allocateKey func(row interface{}) (key.Key, error)) Vector {
 	return &SliceVec{
 		allocateKey: allocateKey,
 		s:           make([]*Element, 0, size),
@@ -16,7 +16,7 @@ func AllocateSlice(size int, allocateKey func(line string) (key.Key, error)) Vec
 }
 
 type SliceVec struct {
-	allocateKey func(line string) (key.Key, error)
+	allocateKey func(row interface{}) (key.Key, error)
 	s           []*Element
 }
 
@@ -32,12 +32,17 @@ func (v *SliceVec) Len() int {
 	return len(v.s)
 }
 
-func (v *SliceVec) PushBack(line string) error {
-	k, err := v.allocateKey(line)
+func (v *SliceVec) PushBack(row interface{}) error {
+	k, err := v.allocateKey(row)
 	if err != nil {
 		return err
 	}
-	v.s = append(v.s, &Element{Line: line, Key: k})
+	v.s = append(v.s, &Element{Row: row, Key: k})
+	return nil
+}
+
+func (v *SliceVec) PushFrontNoKey(row interface{}) error {
+	v.s = append([]*Element{{Row: row}}, v.s...)
 	return nil
 }
 
