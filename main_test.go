@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/internal/rw"
 	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
 	"github.com/askiada/external-sort/writer"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func prepareChunks(
@@ -108,7 +108,6 @@ func TestBasics(t *testing.T) {
 		for chunkSize := 1; chunkSize < 152; chunkSize += 10 {
 			for bufferSize := 1; bufferSize < 152; bufferSize += 10 {
 				chunkSize := chunkSize
-				bufferSize := bufferSize
 				t.Run(name+"_"+strconv.Itoa(chunkSize)+"_"+strconv.Itoa(bufferSize), func(t *testing.T) {
 					ctx := context.Background()
 
