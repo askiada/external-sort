@@ -4,10 +4,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector/key"
 	"github.com/askiada/external-sort/writer"
-	"github.com/pkg/errors"
 )
 
 // Allocate define a vector and methods to read and write it.
@@ -54,23 +55,28 @@ func (a *Allocate) Dump(vec Vector, filename string) error {
 	if err != nil {
 		return errors.Errorf("failed creating file: %s", err)
 	}
+
 	datawriter, err := a.FnWriter(file)
 	if err != nil {
 		return errors.Errorf("failed creating writer: %s", err)
 	}
-	for i := 0; i < vec.Len(); i++ {
+
+	for i := range vec.Len() {
 		err = datawriter.Write(vec.Get(i).Row)
 		if err != nil {
 			return errors.Errorf("failed writing file: %s", err)
 		}
 	}
+
 	err = datawriter.Close()
 	if err != nil {
 		return errors.Wrap(err, "can't close chunk writer")
 	}
+
 	err = file.Close()
 	if err != nil {
 		return errors.Wrap(err, "can't close chunf file")
 	}
+
 	return nil
 }

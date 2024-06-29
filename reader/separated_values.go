@@ -17,6 +17,7 @@ func NewSeparatedValues(r io.Reader, separator rune) *SeparatedValuesReader {
 		r: csv.NewReader(r),
 	}
 	s.r.Comma = separator
+
 	return s
 }
 
@@ -26,6 +27,7 @@ func (s *SeparatedValuesReader) Next() bool {
 		s.err = nil
 		return false
 	}
+
 	return true
 }
 
@@ -33,6 +35,7 @@ func (s *SeparatedValuesReader) Read() (interface{}, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
+
 	return s.row, nil
 }
 

@@ -3,9 +3,10 @@ package batchingchannels
 import (
 	"context"
 
-	"github.com/askiada/external-sort/vector"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/askiada/external-sort/vector"
 )
 
 // BatchingChannel define a standard channel, with the change that instead of producing individual elements
@@ -17,7 +18,7 @@ type BatchingChannel struct {
 	buffer          vector.Vector
 	allocate        *vector.Allocate
 	G               *errgroup.Group
-	internalContext context.Context //nolint //containedcontext
+	internalContext context.Context
 	size            int
 	maxWorker       int
 }
@@ -27,9 +28,11 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 	if size == 0 {
 		return nil, errors.New("does not support unbuffered behaviour")
 	}
+
 	if size < 0 {
 		return nil, errors.New("does not support negative size")
 	}
+
 	errGrp, errGrpContext := errgroup.WithContext(ctx)
 	errGrp.SetLimit(maxWorker)
 	bChan := &BatchingChannel{
@@ -41,6 +44,7 @@ func NewBatchingChannel(ctx context.Context, allocate *vector.Allocate, maxWorke
 		G:               errGrp,
 		internalContext: errGrpContext,
 	}
+
 	go bChan.batchingBuffer()
 
 	return bChan, nil
@@ -61,11 +65,11 @@ func (ch *BatchingChannel) Out() <-chan vector.Vector {
 // ProcessOut process specified function on each batch.
 func (ch *BatchingChannel) ProcessOut(f func(vector.Vector) error) error {
 	for val := range ch.Out() {
-		val := val
 		ch.G.Go(func() error {
 			return f(val)
 		})
 	}
+
 	err := ch.G.Wait()
 	if err != nil {
 		return errors.Wrap(err, "one of the task failed")
@@ -93,6 +97,7 @@ func (ch *BatchingChannel) Close() {
 // When the batch reach maximum size or the input channel is closed, it is passed to the output channel.
 func (ch *BatchingChannel) batchingBuffer() {
 	ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)
+
 	for {
 		row, open := <-ch.input
 		if open {
@@ -109,6 +114,7 @@ func (ch *BatchingChannel) batchingBuffer() {
 
 			break
 		}
+
 		if ch.buffer.Len() == ch.size {
 			ch.output <- ch.buffer
 			ch.buffer = ch.allocate.Vector(ch.size, ch.allocate.Key)

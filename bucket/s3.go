@@ -6,12 +6,13 @@ import (
 	"context"
 	"io"
 
-	"github.com/askiada/external-sort/internal/progress"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pkg/errors"
+
+	"github.com/askiada/external-sort/internal/progress"
 )
 
 // S3 can read and write from/to S3 buckets using io.Reader and io.Writer
@@ -46,9 +47,11 @@ func New(ctx context.Context, cfg ...ConfigFunc) (*S3, error) {
 	if s3Val.region == "" {
 		return nil, errors.Wrap(ErrInvalidInput, "region")
 	}
+
 	if s3Val.bufferLen <= 0 {
 		return nil, errors.Wrap(ErrInvalidInput, "buffer length")
 	}
+
 	if s3Val.s3Client == nil {
 		cfg, err := config.LoadDefaultConfig(ctx,
 			config.WithRegion(s3Val.region),
@@ -57,6 +60,7 @@ func New(ctx context.Context, cfg ...ConfigFunc) (*S3, error) {
 		if err != nil {
 			return nil, errors.New("can't create aws config")
 		}
+
 		s3Val.s3Client = s3.NewFromConfig(cfg)
 	}
 
@@ -107,6 +111,7 @@ func (s *S3) Download(ctx context.Context, writer io.Writer, filesinfo ...*S3Fil
 		// we need to force this to be a sequential download.
 		d.Concurrency = 1
 	})
+
 	ww := &seqWriterAt{writer, nil}
 	for _, fileinfo := range filesinfo {
 		_, err := downloader.Download(ctx, ww, &s3.GetObjectInput{

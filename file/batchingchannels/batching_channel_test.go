@@ -7,19 +7,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/askiada/external-sort/file/batchingchannels"
-	"github.com/askiada/external-sort/vector"
-	"github.com/askiada/external-sort/vector/key"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/askiada/external-sort/file/batchingchannels"
+	"github.com/askiada/external-sort/vector"
+	"github.com/askiada/external-sort/vector/key"
 )
 
 type intKey struct {
 	value int
 }
 
-func allocateInt(row interface{}) (key.Key, error) { //nolint //ireturn
+func allocateInt(row interface{}) (key.Key, error) {
 	line, ok := row.(string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to string: %+v", row)
@@ -53,7 +54,7 @@ func testBatches(t *testing.T, bChan *batchingchannels.BatchingChannel) {
 
 	maxIn := 100
 	wgrpInput.Add(maxIn)
-	for idx := 0; idx < maxIn; idx++ {
+	for idx := range maxIn {
 		go func(j int) {
 			defer wgrpInput.Done()
 			for i := maxI / maxIn * j; i < maxI*(j+1)/maxIn; i++ {
@@ -81,7 +82,7 @@ func testBatches(t *testing.T, bChan *batchingchannels.BatchingChannel) {
 	go func() {
 		defer wgrp.Done()
 		err := bChan.ProcessOut(func(val vector.Vector) error {
-			for i := 0; i < val.Len(); i++ {
+			for i := range val.Len() {
 				val := val.Get(i)
 				got <- val
 			}

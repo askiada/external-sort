@@ -7,13 +7,14 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/internal/rw"
 	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
 	"github.com/askiada/external-sort/writer"
-	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkMergeSort(b *testing.B) {

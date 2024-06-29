@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/askiada/external-sort/reader"
 	"github.com/askiada/external-sort/vector"
-
-	"github.com/pkg/errors"
 )
 
 // chunkInfo define a chunk.
@@ -28,12 +28,15 @@ func (c *chunkInfo) pullSubset(size int) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "can't read chunk")
 		}
+
 		err = c.buffer.PushBack(row)
 		if err != nil {
 			return errors.Wrap(err, "can't push back row")
 		}
+
 		elemIdx++
 	}
+
 	if c.reader.Err() != nil {
 		return errors.Wrap(c.reader.Err(), "chunk reader encountered an error")
 	}
@@ -52,6 +55,7 @@ func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, with
 	if err != nil {
 		return errors.Wrap(err, "can't open chunk file")
 	}
+
 	rder, err := allocate.FnReader(chunkFile)
 	if err != nil {
 		return errors.Wrap(err, "can't read chunk file")
@@ -67,11 +71,14 @@ func (c *chunks) new(chunkPath string, allocate *vector.Allocate, size int, with
 		reader:   rder,
 		buffer:   allocate.Vector(size, allocate.Key),
 	}
+
 	err = elem.pullSubset(size)
 	if err != nil {
 		return errors.Wrap(err, "can't pull chunk subset")
 	}
+
 	c.list = append(c.list, elem)
+
 	return nil
 }
 
@@ -83,6 +90,7 @@ func (c *chunks) close() error {
 			return errors.Wrapf(err, "can't close chunk file %s", chunk.filename)
 		}
 	}
+
 	return nil
 }
 
@@ -91,10 +99,12 @@ func (c *chunks) close() error {
 func (c *chunks) shrink(toShrink []int) error {
 	for i, shrinkIndex := range toShrink {
 		shrinkIndex -= i
+
 		err := c.list[shrinkIndex].file.Close()
 		if err != nil {
 			return errors.Wrapf(err, "can't close chunk file %s", c.list[shrinkIndex].filename)
 		}
+
 		err = os.Remove(c.list[shrinkIndex].filename)
 		if err != nil {
 			return errors.Wrapf(err, "can't remove chunk file %s", c.list[shrinkIndex].filename)
@@ -102,6 +112,7 @@ func (c *chunks) shrink(toShrink []int) error {
 		// we want to preserve order
 		c.list = append(c.list[:shrinkIndex], c.list[shrinkIndex+1:]...)
 	}
+
 	return nil
 }
 
@@ -136,5 +147,6 @@ func (c *chunks) min() (minChunk *chunkInfo, minValue *vector.Element, minIdx in
 	minValue = c.list[0].buffer.Get(0)
 	minIdx = 0
 	minChunk = c.list[0]
+
 	return minChunk, minValue, minIdx
 }

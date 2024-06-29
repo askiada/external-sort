@@ -18,20 +18,27 @@ type StdScanner struct {
 }
 
 func NewStdScanner(r io.Reader, isGzip bool) (Reader, error) {
-	var newR *bufio.Scanner
-	s := &StdScanner{}
+	var (
+		newR *bufio.Scanner
+		s    = &StdScanner{}
+	)
+
 	if isGzip {
 		gr, err := gzip.NewReader(r)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't create gzip reader")
 		}
+
 		s.gr = gr
 		newR = bufio.NewScanner(gr)
 	} else {
 		newR = bufio.NewScanner(r)
 	}
+
 	s.r = newR
+
 	logger.Infoln("Created standard scanner")
+
 	return s, nil
 }
 
@@ -40,6 +47,7 @@ func (s *StdScanner) Next() bool {
 	if !next && s.gr != nil {
 		s.gr.Close()
 	}
+
 	return next
 }
 
@@ -57,19 +65,25 @@ type StdSliceScanner struct {
 }
 
 func NewStdSliceScanner(r io.Reader, isGzip bool) (Reader, error) {
-	var newR *bufio.Scanner
-	s := &StdSliceScanner{}
+	var (
+		newR *bufio.Scanner
+		s    = &StdSliceScanner{}
+	)
+
 	if isGzip {
 		gr, err := gzip.NewReader(r)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't create gzip reader")
 		}
+
 		s.gr = gr
 		newR = bufio.NewScanner(gr)
 	} else {
 		newR = bufio.NewScanner(r)
 	}
+
 	s.r = newR
+
 	return s, nil
 }
 
@@ -78,15 +92,18 @@ func (s *StdSliceScanner) Next() bool {
 	if !next && s.gr != nil {
 		s.gr.Close()
 	}
+
 	return next
 }
 
 func (s *StdSliceScanner) Read() (interface{}, error) {
 	line := s.r.Text()
+
 	before, after, found := strings.Cut(line, "##!!##")
 	if !found {
 		return nil, errors.New("can't cut row")
 	}
+
 	return []string{before, after}, nil
 }
 

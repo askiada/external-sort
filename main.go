@@ -6,6 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/askiada/external-sort/file"
 	"github.com/askiada/external-sort/internal"
 	"github.com/askiada/external-sort/internal/rw"
@@ -13,10 +18,6 @@ import (
 	"github.com/askiada/external-sort/vector"
 	"github.com/askiada/external-sort/vector/key"
 	"github.com/askiada/external-sort/writer"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var logger = logrus.StandardLogger()
@@ -130,14 +131,18 @@ func newCommand() *command {
 			RunE: shuffleRun,
 		},
 	}
+
 	root.rootCmd.AddCommand(root.sortCmd, root.shuffleCmd)
+
 	return root
 }
 
 func main() {
 	root := newCommand()
 	setFlags(root)
+
 	ctx := context.Background()
+
 	cobra.CheckErr(root.rootCmd.ExecuteContext(ctx))
 }
 
@@ -150,22 +155,28 @@ func sortRun(cmd *cobra.Command, _ []string) error {
 
 	start := time.Now()
 	inputOutput := rw.NewInputOutput(cmd.Context())
+
 	err := inputOutput.SetInputReader(cmd.Context(), internal.InputFiles...)
 	if err != nil {
 		return errors.Wrap(err, "can't set input reader")
 	}
+
 	err = inputOutput.SetOutputWriter(cmd.Context(), internal.OutputFile)
 	if err != nil {
 		return errors.Wrap(err, "can't set output writer")
 	}
+
 	tsvFields := []int{}
+
 	for _, field := range internal.TsvFields {
 		i, err := strconv.Atoi(field)
 		if err != nil {
 			return errors.Wrapf(err, "can't convert field %s", field)
 		}
+
 		tsvFields = append(tsvFields, i)
 	}
+
 	fileInfo := &file.Info{
 		WithHeader:  internal.WithHeader,
 		InputReader: inputOutput.Input,
@@ -176,6 +187,7 @@ func sortRun(cmd *cobra.Command, _ []string) error {
 				if err != nil {
 					return nil, errors.Wrapf(err, "can't allocate tsv %+v", row)
 				}
+
 				return k, nil
 			},
 			func(r io.Reader) (reader.Reader, error) {
@@ -183,6 +195,7 @@ func sortRun(cmd *cobra.Command, _ []string) error {
 				if err != nil {
 					return nil, errors.Wrap(err, "can't create Gzip reader")
 				}
+
 				return gzipReader, nil
 			},
 			func(w io.Writer) (writer.Writer, error) {
@@ -190,11 +203,13 @@ func sortRun(cmd *cobra.Command, _ []string) error {
 				if err != nil {
 					return nil, errors.Wrap(err, "can't create Gzip writer")
 				}
+
 				return gzipWriter, nil
 			},
 		),
 		PrintMemUsage: false,
 	}
+
 	inputOutput.Do(func() error {
 		// create small files with maximum 30 rows in each
 		chunkPaths, err := fileInfo.CreateSortedChunks(cmd.Context(), internal.ChunkFolder, internal.ChunkSize, internal.MaxWorkers)
@@ -207,14 +222,18 @@ func sortRun(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return errors.Wrap(err, "can't merge sort")
 		}
+
 		elapsed := time.Since(start)
 		logger.Infoln("It took", elapsed)
+
 		return nil
 	})
+
 	err = inputOutput.Err()
 	if err != nil {
 		return errors.Wrap(err, "can't finish")
 	}
+
 	return nil
 }
 
@@ -224,12 +243,15 @@ func shuffleRun(cmd *cobra.Command, _ []string) error {
 	logger.Infoln("Output file", internal.OutputFile)
 	logger.Infoln("Chunk folder", internal.ChunkFolder)
 	logger.Infoln("GZip file", internal.IsGzip)
+
 	start := time.Now()
 	inputOutput := rw.NewInputOutput(cmd.Context())
+
 	err := inputOutput.SetInputReader(cmd.Context(), internal.InputFiles...)
 	if err != nil {
 		return errors.Wrap(err, "can't set input reader")
 	}
+
 	err = inputOutput.SetOutputWriter(cmd.Context(), internal.OutputFile)
 	if err != nil {
 		return errors.Wrap(err, "can't set output writer")
@@ -241,6 +263,7 @@ func shuffleRun(cmd *cobra.Command, _ []string) error {
 		OutputFile:    inputOutput.Output,
 		PrintMemUsage: false,
 	}
+
 	inputOutput.Do(func() error {
 		// create small files with maximum 30 rows in each
 		_, err := fileInfo.Shuffle(
@@ -255,13 +278,18 @@ func shuffleRun(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return errors.Wrap(err, "can't create shuflled chunks")
 		}
+
 		elapsed := time.Since(start)
+
 		logger.Infoln("It took", elapsed)
+
 		return nil
 	})
+
 	err = inputOutput.Err()
 	if err != nil {
 		return errors.Wrap(err, "can't finish")
 	}
+
 	return nil
 }

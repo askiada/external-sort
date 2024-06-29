@@ -26,6 +26,7 @@ func NewGZipSeparatedValues(r io.Reader, separator rune) (*GZipSeparatedValuesRe
 		r:  csv.NewReader(gr),
 	}
 	s.r.Comma = separator
+
 	return s, nil
 }
 
@@ -34,8 +35,10 @@ func (s *GZipSeparatedValuesReader) Next() bool {
 	if errors.Is(s.err, io.EOF) {
 		s.err = nil
 		s.gr.Close()
+
 		return false
 	}
+
 	return true
 }
 
@@ -43,6 +46,7 @@ func (s *GZipSeparatedValuesReader) Read() (interface{}, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
+
 	return s.row, nil
 }
 

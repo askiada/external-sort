@@ -37,7 +37,9 @@ func (v *SliceVec) PushBack(row interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	v.s = append(v.s, &Element{Row: row, Key: k})
+
 	return nil
 }
 

@@ -8,14 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/askiada/external-sort/bucket"
-	"github.com/askiada/external-sort/internal"
-	"github.com/askiada/external-sort/internal/progress"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/askiada/external-sort/bucket"
+	"github.com/askiada/external-sort/internal"
+	"github.com/askiada/external-sort/internal/progress"
 )
 
 var logger = logrus.StandardLogger()
@@ -27,7 +28,7 @@ type InputOutput struct {
 	Output      io.Writer
 	outputPipe  *io.PipeWriter
 	g           *errgroup.Group
-	internalCtx context.Context //nolint //containedcontext
+	internalCtx context.Context
 }
 
 func NewInputOutput(ctx context.Context) *InputOutput {
@@ -43,6 +44,7 @@ func (i *InputOutput) s3Check(ctx context.Context) error {
 	if i.s3Client != nil {
 		return nil
 	}
+
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(internal.S3Region),
 		config.WithRetryMaxAttempts(internal.S3RetryMaxAttempts),
@@ -50,6 +52,7 @@ func (i *InputOutput) s3Check(ctx context.Context) error {
 	if err != nil {
 		return errors.New("can't create aws config")
 	}
+
 	i.s3Client = s3.NewFromConfig(cfg)
 
 	return nil
@@ -61,6 +64,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		if err != nil {
 			return errors.Wrap(err, "can't check s3")
 		}
+
 		s3Api, err := bucket.New(ctx,
 			bucket.Client(i.s3Client),
 			bucket.Buffer(1_000_000),
@@ -69,7 +73,9 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		if err != nil {
 			return errors.Wrap(err, "can't create s3 client")
 		}
+
 		files := []*bucket.S3FileInfo{}
+
 		for _, inputFile := range inputFiles {
 			u, _ := url.Parse(inputFile)
 			u.Path = strings.TrimLeft(u.Path, "/")
@@ -85,6 +91,7 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		i.inputPipe = pr
 		i.g.Go(func() (err error) {
 			defer func() { err = pw.Close() }()
+
 			err = s3Api.Download(i.internalCtx, pw, files...)
 			if err != nil {
 				return errors.Wrap(err, "can't download files")
@@ -94,13 +101,16 @@ func (i *InputOutput) SetInputReader(ctx context.Context, inputFiles ...string) 
 		})
 	} else {
 		var files []io.Reader
+
 		for _, inputFile := range inputFiles {
 			f, err := os.Open(filepath.Clean(inputFile))
 			if err != nil {
 				return errors.Wrapf(err, "can't open file %s", inputFile)
 			}
+
 			files = append(files, f)
 		}
+
 		i.Input = io.MultiReader(files...)
 	}
 
@@ -113,12 +123,15 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		if err != nil {
 			return errors.Wrap(err, "can't check s3")
 		}
+
 		outputURL, err := url.Parse(outputFile)
 		if err != nil {
 			return errors.Wrapf(err, "can't parse output url %s", outputFile)
 		}
+
 		outputURL.Path = strings.TrimLeft(outputURL.Path, "/")
 		logger.Debugf("Proto: %q, Bucket: %q, Key: %q", outputURL.Scheme, outputURL.Host, outputURL.Path)
+
 		s3Api, err := bucket.New(ctx,
 			bucket.Client(i.s3Client),
 			bucket.Buffer(1_000_000),
@@ -133,10 +146,12 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 		i.outputPipe = pw
 		i.g.Go(func() (err error) {
 			defer func() { err = pr.Close() }()
+
 			err = s3Api.Upload(i.internalCtx, pr, outputURL.Host, outputURL.Path)
 			if err != nil {
 				return errors.Wrapf(err, "can't upload file %s", outputFile)
 			}
+
 			return err
 		})
 	} else {
@@ -145,6 +160,7 @@ func (i *InputOutput) SetOutputWriter(ctx context.Context, outputFile string) (e
 			return errors.Wrapf(err, "can't create file %s", outputFile)
 		}
 	}
+
 	return nil
 }
 
@@ -154,10 +170,12 @@ func (i *InputOutput) Do(f func() error) {
 		if err != nil {
 			return err
 		}
+
 		err = i.Close()
 		if err != nil {
 			return err
 		}
+
 		return nil
 	})
 }
@@ -169,12 +187,14 @@ func (i *InputOutput) Close() error {
 			return errors.Wrap(err, "can't close input reader")
 		}
 	}
+
 	if i.outputPipe != nil {
 		err := i.outputPipe.Close()
 		if err != nil {
 			return errors.Wrap(err, "can't close output writer")
 		}
 	}
+
 	return nil
 }
 
@@ -182,5 +202,6 @@ func (i *InputOutput) Err() error {
 	if err := i.g.Wait(); err != nil {
 		return errors.Wrap(err, "one of the go routines went wrong")
 	}
+
 	return nil
 }

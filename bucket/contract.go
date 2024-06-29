@@ -1,9 +1,10 @@
 package bucket
 
 import (
-	"github.com/askiada/external-sort/internal/progress"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/askiada/external-sort/internal/progress"
 )
 
 // S3ClientAPI S3 client contract for this repo.

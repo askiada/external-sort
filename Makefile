@@ -8,6 +8,10 @@ docker_image=askiada/external-sort
 include ./env.list
 export $(shell sed 's/=.*//' ./env.list)
 
+.PHONY: lint
+lint:
+	gofumpt -w -l .
+	golangci-lint run ./...
 
 .PHONY: test
 test:

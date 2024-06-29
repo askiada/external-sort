@@ -12,15 +12,17 @@ type Int struct {
 }
 
 // AllocateInt create a new integer key.
-func AllocateInt(row interface{}) (Key, error) { //nolint //ireturn
+func AllocateInt(row interface{}) (Key, error) {
 	line, ok := row.(string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to string: %+v", row)
 	}
+
 	num, err := strconv.Atoi(line)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't convert line %s to int", line)
 	}
+
 	return &Int{num}, nil
 }
 
@@ -40,15 +42,17 @@ type IntFromSlice struct {
 }
 
 // AllocateIntFromSlice create a new integer key from a position in a slice of integers.
-func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) { //nolint //ireturn
+func AllocateIntFromSlice(row interface{}, intIndex int) (Key, error) {
 	line, ok := row.([]string)
 	if !ok {
 		return nil, errors.Errorf("can't convert interface{} to []string: %+v", row)
 	}
+
 	num, err := strconv.ParseInt(line[intIndex], 10, 64)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't parse int %+v", line[intIndex])
 	}
+
 	return &IntFromSlice{num}, nil
 }
 
