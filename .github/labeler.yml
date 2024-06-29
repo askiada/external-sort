@@ -1,0 +1,31 @@
+s3:
+  - bucket/*
+  - bucket/**/*
+
+file:
+  - file/*
+  - file/**/*
+
+internal:
+  - internal/*
+  - internal/**/*
+
+reader:
+  - reader/*
+  - reader/**/*
+
+sftp:
+  - sftp/*
+  - sftp/**/*
+
+vector:
+  - vector/*
+  - vector/**/*
+
+writer:
+  - writer/*
+  - writer/**/*
+
+ci:
+  - .github/*
+  - .github/**/*

@@ -8,6 +8,10 @@ docker_image=askiada/external-sort
 include ./env.list
 export $(shell sed 's/=.*//' ./env.list)
 
+.PHONY: lint
+lint:
+	gofumpt -w -l .
+	golangci-lint run ./...
 
 .PHONY: test
 test:
@@ -17,9 +21,13 @@ test:
 test_race:
 	go test -race ./...
 
-.PHONY: run
-run: build
-	./bin/external-sort
+.PHONY: run_sort
+run_sort: build
+	./bin/external-sort sort
+
+.PHONY: run_shuffle
+run_shuffle: build
+	./bin/external-sort shuffle
 
 .PHONY: build
 build:
@@ -30,3 +38,7 @@ build_docker: ## Build a docker image from current git sha
 	@docker build \
 		--build-arg BUILDKIT_INLINE_CACHE=1 \
 		-t $(docker_image):$(tag) .
+
+.PHONY: ci_tests
+ci_tests: ## Run tests for CI environment.
+	go test -trimpath --timeout=10m -failfast -v -race -covermode=atomic -coverprofile=coverage.out ./...

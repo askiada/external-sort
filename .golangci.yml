@@ -1,106 +1,120 @@
 linters-settings:
-    govet:
-        settings:
-            printf:
-                funcs:
-                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-                    - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-        enable:
-            - fieldalignment
-    # golint:
-    # min-confidence: 0
-    gocyclo:
-        min-complexity: 15
-    maligned:
-        suggest-new: true
-    goconst:
-        min-len: 2
-        min-occurrences: 2
-    # misspell: # disabled as it was breaking interfaces with FinaliZe
-    #   locale: UK
-    lll:
-        line-length: 140
-    goimports:
-        local-prefixes: github.com/golangci/golangci-lint
-    gocritic:
-        enabled-tags:
-            - diagnostic
-            - experimental
-            - opinionated
-            - performance
-            - style
-    funlen:
-        lines: 100
-        statements: 50
-    godot:
-        capital: true
-    unparam:
-        check-exported: true
+  cyclop:
+    skip-tests: true
+    max-complexity: 15
+  exhaustive:
+    default-signifies-exhaustive: true
+  funlen:
+    lines: 110
+    statements: 70
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/askiada)
+      - localmodule
+    custom-order: true
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  gocyclo:
+    min-complexity: 15
+  godot:
+    capital: true
+  goimports:
+    local-prefixes: github.com/askiada/external-sort
+  govet:
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    disable:
+      - fieldalignment
+  lll:
+    line-length: 140
+  misspell:
+    locale: UK
+  paralleltest:
+    ignore-missing-subtests: true # Unfortunately, we can't write t.Run("success", testSuccess)
+  unparam:
+    check-exported: true
+  varnamelen:
+    min-name-length: 2
+    max-distance: 15
+
+  errcheck:
+    exclude-functions:
+      - (*io.PipeWriter).Close
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - errors.Join(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+      - status.Error(
+      - Group).Wait()
+
+  nlreturn:
+    block-size: 2
 
 issues:
-    # Excluding configuration per-path, per-linter, per-text and per-source
-    exclude-rules:
-        - path: _test\.go
-          linters:
-              - gosec # security check is not impoerant in tests
-              - dupl # we usualy duplicate code in tests
-              - bodyclose
-              - unparam
-    fix: true
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - bodyclose
+        - contextcheck
+        - dupl # we usually duplicate code in tests
+        - errcheck
+        - exhaustive
+        - funlen
+        - gocritic
+        - gosec # security check is not important in tests
+        - govet
+        - maintidx
+        - nlreturn
+        - revive
+        - unparam
+        - varnamelen
+        - wrapcheck
+        - wsl
+    - path: testing
+      linters:
+        - errcheck
+  fix: true
+  exclude-use-default: false
+  exclude-dirs:
+    - model
+    - tmp
+    - bin
+    - scripts
 
 run:
-    skip-dirs:
-        - model
-        - tmp
-        - bin
-        - scripts
-
-    tests: true
-    build-tags:
-        - integration
+  allow-parallel-runners: true
+  tests: true
+  build-tags:
+    - integration
 
 linters:
-    disable-all: true
-    fast: true
-    enable:
-        - asciicheck
-        - bodyclose
-        - deadcode
-        - dogsled
-        - depguard
-        - dupl
-        - errorlint
-        - gocognit
-        - goconst
-        - gocritic
-        - gocyclo
-        - godot
-        - godox
-        - golint
-        - goprintffuncname
-        - gosec
-        - gosimple
-        - govet
-        # - misspell # disabled as it was breaking interfaces with FinaliZe
-        - nakedret
-        - nestif
-        - prealloc
-        - rowserrcheck
-        - scopelint
-        - staticcheck
-        - stylecheck
-        - unconvert
-        # - unparam # Too many false positives on Task interface implementation.
-        - unused
-        - whitespace
-        # - wrapcheck
-        - tparallel
-
-# golangci.com configuration
-# https://github.com/golangci/golangci/wiki/Configuration
-service:
-    golangci-lint-version: 1.38.x
-    prepare:
-        - echo "here I can run custom commands, but no preparation needed for this repo"
+  enable-all: true
+  disable:
+    - depguard # because I don't want to write a dedicated config file.
+    - execinquery #Marked as deprecated by golangci-lint.
+    - gomnd # Marked as deprecated by golangci-lint. Replaced with mnd
+    - nonamedreturns # Conflicts with unnamedResult linter.

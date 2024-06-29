@@ -2,3 +2,10 @@ bench*
 gen*
 chunk_*.tsv
 bin/
+*.csv
+*.tsv
+*.gz
+coverage.out
+testdata/chunks/*.csv
+testdata/chunks/*.tsv
+testdata/chunks/*.gz
